@@ -1,0 +1,77 @@
+{
+  "features": {
+    "ar_a": {
+      "constant": true,
+      "count": 882,
+      "mean": 0.0,
+      "std": 1.0
+    },
+    "avg_pkts_lambda": {
+      "constant": true,
+      "count": 882,
+      "mean": 0.0,
+      "std": 1.0
+    },
+    "avg_t_off": {
+      "constant": true,
+      "count": 882,
+      "mean": 0.0,
+      "std": 1.0
+    },
+    "avg_t_on": {
+      "constant": true,
+      "count": 882,
+      "mean": 0.0,
+      "std": 1.0
+    },
+    "capacity": {
+      "constant": true,
+      "count": 2352,
+      "mean": 10000000000.0,
+      "std": 1.0
+    },
+    "eq_lambda": {
+      "constant": true,
+      "count": 882,
+      "mean": 0.0,
+      "std": 1.0
+    },
+    "exp_max_factor": {
+      "constant": true,
+      "count": 882,
+      "mean": 0.0,
+      "std": 1.0
+    },
+    "length": {
+      "constant": true,
+      "count": 882,
+      "mean": 3.0,
+      "std": 1.0
+    },
+    "packets": {
+      "constant": false,
+      "count": 882,
+      "mean": 667787.8860012755,
+      "std": 382857.9171980174
+    },
+    "pkts_lambda_on": {
+      "constant": true,
+      "count": 882,
+      "mean": 0.0,
+      "std": 1.0
+    },
+    "sigma": {
+      "constant": true,
+      "count": 882,
+      "mean": 0.0,
+      "std": 1.0
+    },
+    "traffic": {
+      "constant": false,
+      "count": 882,
+      "mean": 3857142848.8707485,
+      "std": 2211387322.3401856
+    }
+  },
+  "source_split": "train"
+}

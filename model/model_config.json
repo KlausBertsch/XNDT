@@ -1,0 +1,13 @@
+{
+  "batching": "one graph per gradient update; no padding",
+  "message_passing_iterations": 8,
+  "model": "RouteNet_Fermi",
+  "output_activation": "sigmoid",
+  "state_dimensions": {
+    "link": 32,
+    "path": 32,
+    "queue": 32
+  },
+  "training_from_scratch": true,
+  "xndt_mode": true
+}

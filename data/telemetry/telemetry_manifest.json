@@ -1,0 +1,28 @@
+{
+  "counts": {
+    "run_level_measurements": 336,
+    "runs": 42,
+    "scenarios": 14
+  },
+  "license": "CC-BY-4.0",
+  "metric_names": [
+    "in_octets",
+    "out_octets",
+    "out_queue_red_drop_pkts"
+  ],
+  "privacy": {
+    "removed": [
+      "management addresses",
+      "endpoint addresses and host identifiers",
+      "raw Prometheus responses",
+      "raw artifact paths and hashes"
+    ]
+  },
+  "queue_ids": [
+    "0",
+    "8"
+  ],
+  "schema_version": "public-1.0",
+  "scope": "held-out test split and the two directed bottleneck resources",
+  "telemetry_run_level_sha256": "75a602c53ca1a7e8ae4f84c5a03b5678ac4398db57a7a54c8b9a166dd9b14ac3"
+}

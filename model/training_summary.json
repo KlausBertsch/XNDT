@@ -1,0 +1,296 @@
+{
+  "best_validation_epoch": 53,
+  "dataset_manifest": "routenet_dataset/dataset_manifest.json",
+  "dataset_manifest_sha256": "77fe8e8d7da74394e3605b5c6905d7eef34b9d2c0af065a0881a5daa2ebf009c",
+  "epochs_trained": 73,
+  "git_commit": "11ffb343d96bb005180484f962dc4cae2f506f24",
+  "keras_version": "3.15.1",
+  "learning_rate": 0.001,
+  "max_epochs": 200,
+  "model_config": {
+    "batching": "one graph per gradient update; no padding",
+    "message_passing_iterations": 8,
+    "model": "RouteNet_Fermi",
+    "output_activation": "sigmoid",
+    "state_dimensions": {
+      "link": 32,
+      "path": 32,
+      "queue": 32
+    },
+    "training_from_scratch": true,
+    "xndt_mode": true
+  },
+  "normalization_file": "xndt_training/xndt_normalization.json",
+  "normalization_sha256": "8e4cff6d12fbeb8bf9677a0fdecb20084e29e94623cc5fecc8d649e13b645b8a",
+  "optimization_loss": "BinaryCrossentropy(from_logits=False)",
+  "optimizer": "Adam",
+  "patience": 20,
+  "python_version": "3.12.3",
+  "seed": 42,
+  "tensorflow_version": "2.21.0",
+  "test_split_usage": "not opened or evaluated",
+  "train_at_best_weights": {
+    "BCE": 0.07941810005960591,
+    "MAE": 0.0013792256249183267,
+    "MSE": 1.862214939460805e-05,
+    "RMSE": 0.004315338850496916,
+    "d1_MAE": 0.0020065194525374624,
+    "d1_MSE": 2.637133764892608e-05,
+    "d1_RMSE": 0.005135303072743232,
+    "d2_MAE": 0.002131155413234453,
+    "d2_MSE": 2.94951105348798e-05,
+    "d2_RMSE": 0.005430940115199191,
+    "d3_MAE": 2.0089830645142015e-09,
+    "d3_MSE": 1.8266795156661332e-17,
+    "d3_RMSE": 4.273967145014258e-09
+  },
+  "train_samples": 294,
+  "train_scenarios": 98,
+  "validation_at_best_weights": {
+    "BCE": 0.07935782829286657,
+    "MAE": 0.0013688288406594007,
+    "MSE": 1.848156194065482e-05,
+    "RMSE": 0.004299018718341992,
+    "d1_MAE": 0.002056679738478901,
+    "d1_MSE": 3.109633424249772e-05,
+    "d1_RMSE": 0.0055764087226904124,
+    "d2_MAE": 0.002049800761793995,
+    "d2_MSE": 2.4348351578577857e-05,
+    "d2_RMSE": 0.004934404885959183,
+    "d3_MAE": 6.021705306194387e-09,
+    "d3_MSE": 8.888712715705666e-16,
+    "d3_RMSE": 2.981394424712313e-08
+  },
+  "validation_by_rho": [
+    {
+      "MAE": 1.576722418137703e-09,
+      "RMSE": 2.7110679429130317e-09,
+      "measured_loss_mean": 0.0,
+      "n_scenarios": 1,
+      "predicted_loss_mean": 1.576722418137703e-09,
+      "rho_wire": 0.2
+    },
+    {
+      "MAE": 2.1543571088584628e-08,
+      "RMSE": 3.705074298225712e-08,
+      "measured_loss_mean": 2.1392588046688214e-08,
+      "n_scenarios": 1,
+      "predicted_loss_mean": 1.5463445122177824e-10,
+      "rho_wire": 0.4
+    },
+    {
+      "MAE": 6.041374437752248e-10,
+      "RMSE": 6.502620027520841e-10,
+      "measured_loss_mean": 0.0,
+      "n_scenarios": 1,
+      "predicted_loss_mean": 6.041374437752248e-10,
+      "rho_wire": 0.6
+    },
+    {
+      "MAE": 1.7099576738651794e-09,
+      "RMSE": 2.890771680814826e-09,
+      "measured_loss_mean": 0.0,
+      "n_scenarios": 1,
+      "predicted_loss_mean": 1.7099576738651794e-09,
+      "rho_wire": 0.75
+    },
+    {
+      "MAE": 5.442403888666902e-09,
+      "RMSE": 9.157955817759904e-09,
+      "measured_loss_mean": 0.0,
+      "n_scenarios": 1,
+      "predicted_loss_mean": 5.442403888666902e-09,
+      "rho_wire": 0.85
+    },
+    {
+      "MAE": 3.4870583457783746e-09,
+      "RMSE": 3.590251785319973e-09,
+      "measured_loss_mean": 0.0,
+      "n_scenarios": 1,
+      "predicted_loss_mean": 3.4870583457783746e-09,
+      "rho_wire": 0.9
+    },
+    {
+      "MAE": 3.3067320832142535e-08,
+      "RMSE": 5.682314457097445e-08,
+      "measured_loss_mean": 1.6084655582757377e-09,
+      "n_scenarios": 1,
+      "predicted_loss_mean": 3.4675786390418274e-08,
+      "rho_wire": 0.95
+    },
+    {
+      "MAE": 2.0483726929458138e-07,
+      "RMSE": 3.5036581447287323e-07,
+      "measured_loss_mean": 1.5592268217308931e-09,
+      "n_scenarios": 1,
+      "predicted_loss_mean": 2.0639649611631228e-07,
+      "rho_wire": 0.98
+    },
+    {
+      "MAE": 1.680703948360755e-05,
+      "RMSE": 2.0584333174802107e-05,
+      "measured_loss_mean": 0.0,
+      "n_scenarios": 1,
+      "predicted_loss_mean": 1.680703948360755e-05,
+      "rho_wire": 1.0
+    },
+    {
+      "MAE": 0.0009675815624606716,
+      "RMSE": 0.001220107602738359,
+      "measured_loss_mean": 0.012209815697537527,
+      "n_scenarios": 1,
+      "predicted_loss_mean": 0.011242237265501961,
+      "rho_wire": 1.02
+    },
+    {
+      "MAE": 0.0003764426560910017,
+      "RMSE": 0.0006267756030202877,
+      "measured_loss_mean": 0.0321595056189431,
+      "n_scenarios": 1,
+      "predicted_loss_mean": 0.03250618900044542,
+      "rho_wire": 1.05
+    },
+    {
+      "MAE": 0.0075991560239645995,
+      "RMSE": 0.009401622215021447,
+      "measured_loss_mean": 0.060281265940931104,
+      "n_scenarios": 1,
+      "predicted_loss_mean": 0.059195066579751154,
+      "rho_wire": 1.1
+    },
+    {
+      "MAE": 0.0019725213466463627,
+      "RMSE": 0.002786609824140365,
+      "measured_loss_mean": 0.12255829407109155,
+      "n_scenarios": 1,
+      "predicted_loss_mean": 0.12369229396366856,
+      "rho_wire": 1.2
+    },
+    {
+      "MAE": 0.0029516386541114845,
+      "RMSE": 0.0038945474896133468,
+      "measured_loss_mean": 0.20195454359054565,
+      "n_scenarios": 1,
+      "predicted_loss_mean": 0.2031375468657136,
+      "rho_wire": 1.4
+    }
+  ],
+  "validation_comparisons": {
+    "Always-zero": {
+      "overall": {
+        "all": {
+          "MAE": 0.030654532105666384,
+          "RMSE": 0.08195300281050072
+        }
+      },
+      "per_demand": {
+        "d1": {
+          "MAE": 0.04724288659843684,
+          "RMSE": 0.10529096922092868
+        },
+        "d2": {
+          "MAE": 0.0447207051344363,
+          "RMSE": 0.09519819225957171
+        },
+        "d3": {
+          "MAE": 4.584126010004617e-09,
+          "RMSE": 2.970853199966696e-08
+        }
+      }
+    },
+    "Capacity-overload heuristic": {
+      "overall": {
+        "all": {
+          "MAE": 0.005363069129831341,
+          "RMSE": 0.015786218244104405
+        }
+      },
+      "per_demand": {
+        "d1": {
+          "MAE": 0.007989294284681717,
+          "RMSE": 0.019475289333871694
+        },
+        "d2": {
+          "MAE": 0.008099908520686296,
+          "RMSE": 0.019191851518615525
+        },
+        "d3": {
+          "MAE": 4.584126010004617e-09,
+          "RMSE": 2.970853199966696e-08
+        }
+      }
+    },
+    "RouteNet-Fermi": {
+      "overall": {
+        "all": {
+          "MAE": 0.0013688288406594007,
+          "RMSE": 0.004299018718341992
+        }
+      },
+      "per_demand": {
+        "d1": {
+          "MAE": 0.002056679738478901,
+          "RMSE": 0.0055764087226904124
+        },
+        "d2": {
+          "MAE": 0.002049800761793995,
+          "RMSE": 0.004934404885959183
+        },
+        "d3": {
+          "MAE": 6.021705306194387e-09,
+          "RMSE": 2.981394424712313e-08
+        }
+      }
+    }
+  },
+  "validation_samples": 42,
+  "validation_scenario_level": {
+    "MAE": 0.0009917442536570508,
+    "RMSE": 0.002843603458338913
+  },
+  "validation_scenarios": 14,
+  "validation_subsets": {
+    "Always-zero": {
+      "positive": {
+        "MAE": 0.11704457713072619,
+        "RMSE": 0.1601375477308161,
+        "count": 33,
+        "mean_prediction": 0.0
+      },
+      "zero": {
+        "MAE": 0.0,
+        "RMSE": 0.0,
+        "count": 93,
+        "mean_prediction": 0.0
+      }
+    },
+    "Capacity-overload heuristic": {
+      "positive": {
+        "MAE": 0.020477173041174208,
+        "RMSE": 0.030846536317891186,
+        "count": 33,
+        "mean_prediction": 0.1110030629418113
+      },
+      "zero": {
+        "MAE": 0.0,
+        "RMSE": 0.0,
+        "count": 93,
+        "mean_prediction": 0.0
+      }
+    },
+    "RouteNet-Fermi": {
+      "positive": {
+        "MAE": 0.005221805551292636,
+        "RMSE": 0.00840034809942365,
+        "count": 33,
+        "mean_prediction": 0.11721093036743703
+      },
+      "zero": {
+        "MAE": 1.6435562411556914e-06,
+        "RMSE": 6.404134517399486e-06,
+        "count": 93,
+        "mean_prediction": 1.6435562411556914e-06
+      }
+    }
+  }
+}

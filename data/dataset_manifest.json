@@ -1,0 +1,41 @@
+{
+  "files_sha256": {
+    "dataset_split.csv": "e621efd587d9a0697a652a8cda48100f67baffa71e888c858eef8c9822cf318b",
+    "dataset_split.json": "291aebc1c5fc03e1f01e0e56058e3e3bb7ae098faefacc16f4f89fea2a0dd1d1",
+    "test.jsonl": "c7deb404219383c235d92abfdbca19db1b64f9fdbb9f8df0666d69aa57489d26",
+    "train.jsonl": "684ec08e849b2783b9d9ed23ab5b56a1658e41dd40b04d93d5a109a04b393f1e",
+    "validation.jsonl": "613739bee00015751d3e787e481c4e5175db8acc2a479e49427fbbfa7c7400b2"
+  },
+  "license": "CC-BY-4.0",
+  "model_inputs": [
+    "demands[].traffic.configured_wire_rate_bps",
+    "demands[].traffic.configured_packet_rate_pps",
+    "demands[].path[].link_id",
+    "demands[].path[].capacity_bps"
+  ],
+  "primary_label": "demands[].label.loss_ratio",
+  "privacy": {
+    "removed": [
+      "IP addresses",
+      "MAC addresses",
+      "traffic-generator server addresses",
+      "endpoint host and NIC identifiers",
+      "full testbed topology",
+      "raw artifact paths"
+    ]
+  },
+  "run_counts": {
+    "test": 42,
+    "train": 294,
+    "validation": 42
+  },
+  "scenario_counts": {
+    "test": 14,
+    "train": 98,
+    "validation": 14
+  },
+  "scenario_key_is_indivisible": true,
+  "schema_version": "public-1.0",
+  "split_seed": 20260808,
+  "split_strategy": "scenario-level rho-stratified deterministic rotation"
+}

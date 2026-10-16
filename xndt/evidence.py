@@ -62,7 +62,7 @@ def normalize_test_physical(run_rows,test_dataset):
    "observation_switch":r["observation_switch"],"observation_interface":r["observation_interface"],"observation_role":r["observation_role"],"metric":r["metric"],"queue_id":r["queue_id"],
    "value":"" if value is None else value,"unit":r["unit"],"valid":valid,"diagnostic":r["diagnostic"],"counter_reset":r["counter_reset"],"measurement_duration_seconds":duration,
    "derived_rate_bps":"" if rate is None else rate,"derived_capacity_fraction":"" if fraction is None else fraction,"capacity_fraction_semantics":"counter-derived throughput relative to nominal 10-Gbit/s capacity" if fraction is not None else "",
-   "source_provenance":r["source_relative_path"],"prometheus_metric":r["prometheus_metric"]})
+   "source_provenance":"published test telemetry export","prometheus_metric":r["prometheus_metric"]})
  return selected
 
 def aggregate_physical(rows):

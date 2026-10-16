@@ -1,0 +1,147 @@
+{
+  "direction_policy": {
+    "in_metrics": "destination ingress interface of the directed PathLink",
+    "out_and_queue_metrics": "source egress interface of the directed PathLink",
+    "source": "inputs/traffic_enriched.json demands[].PathLinks"
+  },
+  "layout": "long-form evidence rows",
+  "metric_definitions": [
+    {
+      "missing_sample_policy": "valid=false and value=null; never interpreted as zero",
+      "name": "in_errors",
+      "observation_role": "destination_ingress",
+      "prometheus_metric": "junos_interfaces_interface_state_counters_in_errors",
+      "queue_scoped": false,
+      "semantics": "cumulative counter increase over the recorded Prometheus query window",
+      "statistic": "observed_query_window_delta",
+      "unit": "events"
+    },
+    {
+      "missing_sample_policy": "valid=false and value=null; never interpreted as zero",
+      "name": "in_fcs_errors",
+      "observation_role": "destination_ingress",
+      "prometheus_metric": "junos_interfaces_interface_state_counters_in_fcs_errors",
+      "queue_scoped": false,
+      "semantics": "cumulative counter increase over the recorded Prometheus query window",
+      "statistic": "observed_query_window_delta",
+      "unit": "events"
+    },
+    {
+      "missing_sample_policy": "valid=false and value=null; never interpreted as zero",
+      "name": "in_octets",
+      "observation_role": "destination_ingress",
+      "prometheus_metric": "junos_interfaces_interface_state_counters_in_octets",
+      "queue_scoped": false,
+      "semantics": "cumulative counter increase over the recorded Prometheus query window",
+      "statistic": "observed_query_window_delta",
+      "unit": "bytes"
+    },
+    {
+      "missing_sample_policy": "valid=false and value=null; never interpreted as zero",
+      "name": "in_pause_pkts",
+      "observation_role": "destination_ingress",
+      "prometheus_metric": "junos_interfaces_interface_state_counters_in_pause_pkts",
+      "queue_scoped": false,
+      "semantics": "cumulative counter increase over the recorded Prometheus query window",
+      "statistic": "observed_query_window_delta",
+      "unit": "packets"
+    },
+    {
+      "missing_sample_policy": "valid=false and value=null; never interpreted as zero",
+      "name": "in_pkts",
+      "observation_role": "destination_ingress",
+      "prometheus_metric": "junos_interfaces_interface_state_counters_in_pkts",
+      "queue_scoped": false,
+      "semantics": "cumulative counter increase over the recorded Prometheus query window",
+      "statistic": "observed_query_window_delta",
+      "unit": "packets"
+    },
+    {
+      "missing_sample_policy": "valid=false and value=null; never interpreted as zero",
+      "name": "out_octets",
+      "observation_role": "source_egress",
+      "prometheus_metric": "junos_interfaces_interface_state_counters_out_octets",
+      "queue_scoped": false,
+      "semantics": "cumulative counter increase over the recorded Prometheus query window",
+      "statistic": "observed_query_window_delta",
+      "unit": "bytes"
+    },
+    {
+      "missing_sample_policy": "valid=false and value=null; never interpreted as zero",
+      "name": "out_pkts",
+      "observation_role": "source_egress",
+      "prometheus_metric": "junos_interfaces_interface_state_counters_out_pkts",
+      "queue_scoped": false,
+      "semantics": "cumulative counter increase over the recorded Prometheus query window",
+      "statistic": "observed_query_window_delta",
+      "unit": "packets"
+    },
+    {
+      "missing_sample_policy": "valid=false and value=null; never interpreted as zero",
+      "name": "out_queue_bytes",
+      "observation_role": "source_egress",
+      "prometheus_metric": "junos_interfaces_interface_state_counters_out_queue_bytes",
+      "queue_scoped": true,
+      "semantics": "cumulative counter increase over the recorded Prometheus query window",
+      "statistic": "observed_query_window_delta",
+      "unit": "bytes"
+    },
+    {
+      "missing_sample_policy": "valid=false and value=null; never interpreted as zero",
+      "name": "out_queue_pkts",
+      "observation_role": "source_egress",
+      "prometheus_metric": "junos_interfaces_interface_state_counters_out_queue_pkts",
+      "queue_scoped": true,
+      "semantics": "cumulative counter increase over the recorded Prometheus query window",
+      "statistic": "observed_query_window_delta",
+      "unit": "packets"
+    },
+    {
+      "missing_sample_policy": "valid=false and value=null; never interpreted as zero",
+      "name": "out_queue_red_drop_bytes",
+      "observation_role": "source_egress",
+      "prometheus_metric": "junos_interfaces_interface_state_counters_out_queue_red_drop_bytes",
+      "queue_scoped": true,
+      "semantics": "cumulative counter increase over the recorded Prometheus query window",
+      "statistic": "observed_query_window_delta",
+      "unit": "bytes"
+    },
+    {
+      "missing_sample_policy": "valid=false and value=null; never interpreted as zero",
+      "name": "out_queue_red_drop_pkts",
+      "observation_role": "source_egress",
+      "prometheus_metric": "junos_interfaces_interface_state_counters_out_queue_red_drop_pkts",
+      "queue_scoped": true,
+      "semantics": "cumulative counter increase over the recorded Prometheus query window",
+      "statistic": "observed_query_window_delta",
+      "unit": "packets"
+    }
+  ],
+  "prohibited_inputs": [
+    "endpoint labels",
+    "configured traffic rates",
+    "diagnostic fluid reference"
+  ],
+  "queue_policy": {
+    "data_queue_interpretation": null,
+    "queue_ids_kept_separate": true,
+    "statement": "No queue ID is interpreted as the data queue."
+  },
+  "run_level_primary_key": [
+    "measurement_id"
+  ],
+  "scenario_aggregation": {
+    "grouping": "scenario_key plus directed resource and metric identity",
+    "runs_dropped": false,
+    "statistics": [
+      "n",
+      "valid_n",
+      "invalid_n",
+      "mean",
+      "sample std (ddof=1)",
+      "min",
+      "max"
+    ]
+  },
+  "schema_version": "1.0"
+}
