@@ -1,0 +1,12 @@
+
+# Local source material must never enter the public repository.
+/archive/
+
+# Python and editor artifacts
+__pycache__/
+*.py[cod]
+.venv/
+.DS_Store
+
+# Reproduced outputs are written here.
+/outputs/
