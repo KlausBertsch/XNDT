@@ -3,6 +3,8 @@
 `best.weights.h5` is the checkpoint used for the reported predictions and
 explanations. It was trained with seed 42 on the published training split.
 `xndt_normalization.json` contains statistics calculated from that split only.
+The manifest hash in `training_summary.json` identifies the pre-publication
+export; the later privacy reduction removed only fields unused by the model.
 
 SHA-256:
 
