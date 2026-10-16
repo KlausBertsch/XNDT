@@ -1,0 +1,48 @@
+"""Fixed validation-only convergence sweep for the composite XNDT IG function."""
+import argparse, csv, json
+from pathlib import Path
+import numpy as np, tensorflow as tf
+from xndt.model import RouteNet_Fermi
+from xndt.data import DEMAND_ORDER, adapt_sample
+from xndt.integrated_gradients import (COMPLETENESS_TOLERANCE,
+ output, seed_all, select_low_load, traffic_and_ratio,
+ validate_inputs, validation_scenarios, weight_fingerprint)
+
+STEPS=(64,128,256,512,1024)
+def arguments():
+ p=argparse.ArgumentParser(description=__doc__); p.add_argument("--dataset-dir",required=True,type=Path); p.add_argument("--training-dir",required=True,type=Path); p.add_argument("--output-dir",required=True,type=Path); p.add_argument("--seed",type=int,default=42); return p.parse_args()
+def write_csv(path,data):
+ with path.open("w",newline="",encoding="utf-8") as f: w=csv.DictWriter(f,fieldnames=list(data[0])); w.writeheader(); w.writerows(data)
+def with_composite_rates(inputs,rates,ratios):
+ result=dict(inputs); result["traffic"]=tf.reshape(rates,(-1,1)); result["packets"]=tf.reshape(rates*ratios,(-1,1)); return result
+@tf.function(reduce_retracing=True)
+def gradient_grid(model,inputs,baseline,actual,ratios,target_index):
+ alphas=tf.linspace(0.,1.,STEPS[-1]+1)
+ def one(alpha):
+  rates=baseline+alpha*(actual-baseline)
+  with tf.GradientTape() as tape:
+   tape.watch(rates); prediction=model(with_composite_rates(inputs,rates,ratios),training=False)[target_index,0]
+  return tape.gradient(prediction,rates)
+ return tf.map_fn(one,alphas,fn_output_signature=tf.TensorSpec((3,),tf.float32))
+def integrate_grid(grid,actual,baseline,steps):
+ stride=STEPS[-1]//steps; gradients=grid[::stride]; average=(gradients[0]+gradients[-1]+2*tf.reduce_sum(gradients[1:-1],axis=0))/(2*steps); return (actual-baseline)*average
+def main():
+ args=arguments(); seed_all(args.seed); normalization=json.loads((args.training_dir/"xndt_normalization.json").read_text()); all_validation,selected=validation_scenarios(args.dataset_dir); model=RouteNet_Fermi(xndt_mode=True,normalization=normalization["features"]); first,_,_=adapt_sample(selected[0],True); model(first,training=False); model.load_weights(args.training_dir/"best.weights.h5"); before=weight_fingerprint(model); completeness=[]; attributions=[]; ratios_seen=[]
+ for raw in selected:
+  inputs,_,_=adapt_sample(raw,True); validate_inputs(inputs); actual,ratios=traffic_and_ratio(inputs); ratios_seen.extend(np.asarray(ratios).tolist()); low=select_low_load(all_validation,raw); low_inputs,_,_=adapt_sample(low,True); low_rates,_=traffic_and_ratio(low_inputs)
+  for target_index,target in enumerate(("d1","d2")):
+   for baseline_name,baseline in (("zero_traffic",tf.zeros_like(actual)),("low_load",low_rates)):
+    grid=gradient_grid(model,inputs,tf.cast(baseline,tf.float32),actual,ratios,target_index)
+    if not bool(tf.reduce_all(tf.math.is_finite(grid))): raise ValueError("Non-finite gradient grid")
+    p_actual=float(output(model,inputs,actual,ratios,target_index)); p_baseline=float(output(model,inputs,baseline,ratios,target_index)); difference=p_actual-p_baseline
+    for steps in STEPS:
+     attrs=np.asarray(integrate_grid(grid,actual,baseline,steps)); error=abs(float(attrs.sum())-difference); denominator=float(np.abs(attrs).sum()); relative=np.abs(attrs)/denominator if denominator else np.zeros(3); completeness.append({"steps":steps,"scenario_key":raw["scenario_key"],"rho_wire":raw["metadata"]["rho_wire"],"target_demand":target,"baseline":baseline_name,"prediction_actual":p_actual,"prediction_baseline":p_baseline,"sum_ig":float(attrs.sum()),"prediction_difference":difference,"completeness_error":error,"passes_tolerance":error<=COMPLETENESS_TOLERANCE})
+     for i,demand in enumerate(DEMAND_ORDER): attributions.append({"steps":steps,"scenario_key":raw["scenario_key"],"rho_wire":raw["metadata"]["rho_wire"],"target_demand":target,"baseline":baseline_name,"attributed_demand":demand,"signed_ig":float(attrs[i]),"absolute_ig":float(abs(attrs[i])),"relative_importance":float(relative[i])})
+ after=weight_fingerprint(model)
+ if before!=after: raise AssertionError("Weights changed during convergence sweep")
+ summaries=[]; selected_steps=None
+ for steps in STEPS:
+  errors=np.array([x["completeness_error"] for x in completeness if x["steps"]==steps]); n_pass=int(np.sum(errors<=COMPLETENESS_TOLERANCE)); summaries.append({"steps":steps,"n_explanations":len(errors),"n_pass":n_pass,"mean_error":float(errors.mean()),"median_error":float(np.median(errors)),"max_error":float(errors.max())})
+  if selected_steps is None and n_pass==len(errors): selected_steps=steps
+ args.output_dir.mkdir(parents=True,exist_ok=True); write_csv(args.output_dir/"ig_completeness_by_steps.csv",completeness); write_csv(args.output_dir/"ig_attribution_by_steps.csv",attributions); write_csv(args.output_dir/"ig_convergence.csv",summaries); congested=[x for x in attributions if x["rho_wire"]>1]; d3_by_steps={str(s):max(x["absolute_ig"] for x in congested if x["steps"]==s and x["attributed_demand"]=="d3") for s in STEPS}; summary={"split":"validation only","steps_tested":STEPS,"integration":"uniform trapezoidal rule; nested subgrids from the fixed 1024 grid","composite_audit":{"watched_tensor":"r=[r_d1,r_d2,r_d3]","traffic":"r","packets":"r * sample-specific pps_per_bps inside GradientTape","total_derivative_includes_packets_path":True,"pps_per_bps_min":min(ratios_seen),"pps_per_bps_max":max(ratios_seen)},"tolerance":COMPLETENESS_TOLERANCE,"selection_rule":"smallest tested steps with all 24 errors <= tolerance","selected_steps":selected_steps,"summaries":summaries,"max_congested_d3_absolute_ig_by_steps":d3_by_steps,"weight_fingerprint_before":before,"weight_fingerprint_after":after,"weights_unchanged":before==after,"all_finite":bool(np.isfinite([x["signed_ig"] for x in attributions]).all())}; (args.output_dir/"ig_convergence_summary.json").write_text(json.dumps(summary,indent=2,sort_keys=True)+"\n"); print(json.dumps(summary,sort_keys=True),flush=True)
+if __name__=="__main__": main()
