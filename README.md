@@ -10,6 +10,27 @@ packet-loss evaluation, Integrated Gradients and occlusion analyses, Semantic
 Alignment, and Evidence Integration with the required test telemetry. Raw
 hardware captures and testbed automation are deliberately out of scope.
 
+## Citing XNDT
+
+When referencing XNDT in academic work, please cite the following paper:
+
+Klaus J. Bertsch and Oliver P. Waldhorst, “XNDT: Towards Explainable Network
+Digital Twins using a High-Fidelity Hardware Testbed,” *Proc. Upper-Rhine
+Artificial Intelligence Symposium*, Windisch, Switzerland, 2026. To appear.
+
+Consider using the following BibTeX entry:
+
+```bibtex
+@inproceedings{bertsch2026xndt,
+  author    = {Bertsch, Klaus J. and Waldhorst, Oliver P.},
+  title     = {{XNDT}: Towards Explainable Network Digital Twins using a High-Fidelity Hardware Testbed},
+  booktitle = {Proc. Upper-Rhine Artificial Intelligence Symposium},
+  address   = {Windisch, Switzerland},
+  year      = {2026},
+  note      = {To appear}
+}
+```
+
 ## Setup
 
 Python 3.12 is recommended; the published training run used Python 3.12.3.
