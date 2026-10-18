@@ -10,7 +10,7 @@ from xndt.data import DEMAND_ORDER, adapt_sample, read_jsonl
 
 RHO_LEVELS=(.60,.95,1.02,1.10,1.20,1.40)
 FORBIDDEN={"rho_wire","alpha","control_wire_rate_gbps","loss_ratio","tx_packets","rx_packets","loss_packets","forward_loss_ratio","qfx_drops","queue_occupancy","measured_utilization","telemetry"}
-COMPLETENESS_TOLERANCE=1.2e-3
+COMPLETENESS_TOLERANCE=1.0e-3
 FINAL_IG_STEPS=512
 
 def arguments():
