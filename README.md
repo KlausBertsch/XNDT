@@ -79,13 +79,16 @@ The main reference values are:
 |---|---:|---|
 | Test MAE | 0.0017258 | `outputs/predictions/test_metrics.json` |
 | Test RMSE | 0.0049767 | `outputs/predictions/test_metrics.json` |
-| IG completeness checks | 56/56 | `outputs/xai/ig_test_summary.json` |
+| IG completeness checks (tolerance `1e-3`) | 55/56 | `outputs/xai/ig_test_summary.json` |
 | IG/occlusion forward-demand agreement | 56/56 | `outputs/xai/ig_test_summary.json` |
 | Test scenarios with d1/d2 on the shared resource | 14/14 | `outputs/semantic/xndt_semantic_summary.json` |
 | Test telemetry joins | 42/42 runs | `outputs/evidence/xndt_complete_telemetry_summary.json` |
 
 Figures and detailed CSV files are written into the same output directories.
 Small floating-point differences between platforms are possible.
+The 512 integration intervals were selected on the validation split, where all
+24 completeness checks passed the `1e-3` tolerance. The test-split completeness
+count was not used to select this setting.
 
 ## Retrain the model
 

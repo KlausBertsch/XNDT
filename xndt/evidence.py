@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 FORWARD = ("sw03->sw04", "sw03", "xe-0/0/12", "sw04", "xe-0/0/8")
 REVERSE = ("sw04->sw03", "sw04", "xe-0/0/8", "sw03", "xe-0/0/12")
 LINK_CAPACITY_BPS = 10e9
-REP_RHOS = (0.95, 1.02, 1.20, 1.40)
 
 def args():
  p=argparse.ArgumentParser(description=__doc__)
@@ -88,7 +87,7 @@ def regime_stats(rows,metric,role="source_egress",queue=None):
    values=[float(r["derived_rate_bps"] if metric in ("out_octets","in_octets") else r["value"]) for r in selected]
    result[(direction,label,str(queue) if queue is not None else "")]=mean_std(values) if values else (0,None,None,None,None)
  return result
-def plot_outputs(out,scenario_rows,complete_rows):
+def plot_outputs(out,scenario_rows):
  fig,ax=plt.subplots(figsize=(7,4))
  for direction,marker in (("forward","o"),("reverse","s")):
   data=[r for r in scenario_rows if r["metric"]=="out_octets" and r["observation_role"]=="source_egress" and r["direction"]==direction]
@@ -100,11 +99,6 @@ def plot_outputs(out,scenario_rows,complete_rows):
    data=[r for r in scenario_rows if r["metric"]=="out_queue_red_drop_pkts" and r["direction"]==direction and r["queue_id"]==q]
    ax.plot([float(r["rho_wire"]) for r in data],[float(r["mean"]) for r in data],marker="o",label=f"{direction} queue {q}")
  ax.set(xlabel="rho_wire",ylabel="RED-drop packet counter delta");ax.legend();fig.tight_layout();fig.savefig(out/"telemetry_red_drops_by_rho.png",dpi=180);plt.close(fig)
- scenario=min((r["scenario_key"] for r in complete_rows if float(r["rho_wire"])==1.4))
- row=next(r for r in complete_rows if r["scenario_key"]==scenario and r["target_demand"]=="d1" and r["baseline"]=="zero_traffic" and r["demand_id"]=="d1" and r["link_id"]==FORWARD[0])
- fig,ax=plt.subplots(figsize=(11,5));ax.axis("off")
- text=f"Prediction evidence\nd1 predicted loss: {float(row['predicted_loss']):.5f}\n\nModel evidence\n|IG| d1: {float(row['absolute_ig']):.5f} (demand-level)\n\nForwarding evidence\nd1+d2 converge on Switch A → Switch B\nd3 uses Switch B → Switch A\n\nPhysical evidence\nForward egress: {float(row['physical_out_rate_bps_mean'])/1e9:.3f} Gbit/s\nCapacity fraction: {float(row['physical_out_capacity_fraction_mean']):.3f}\nForward RED drops: measured separately for queues 0 and 8\n\nInterpretation\nIndependent counters are consistent with the identified shared resource; no causal claim is made."
- ax.text(.03,.95,text,va="top",fontsize=12,bbox=dict(boxstyle="round",facecolor="#f7f7f7"));fig.tight_layout();fig.savefig(out/"xndt_complete_semantic_congested.png",dpi=180);fig.savefig(out/"xndt_complete_semantic_congested.svg");plt.close(fig)
 
 def main():
  a=args(); frozen=[a.training_dir/"best.weights.h5",a.xai_dir/"ig_test.csv",a.xai_dir/"ig_test_summary.json",a.semantic_dir/"xndt_explanations.csv",a.semantic_dir/"xndt_projected_link_relevance.csv",a.prediction_dir/"test_scenario_predictions.csv"]
@@ -141,14 +135,9 @@ def main():
  claims.append({"claim":"independent hardware telemetry corroborates the identified resource","classification":"SUPPORTED","reason":"Direction-aligned interface and queue counters independently characterize the shared forward resource."})
  summary["paper_claim_audit"]=claims
  (a.output_dir/"xndt_complete_telemetry_summary.json").write_text(json.dumps(summary,indent=2,sort_keys=True)+"\n")
- reps=[]
- for rho in REP_RHOS:
-  s=next(r for r in scenario_summary if float(r["rho_wire"])==rho); attrs=[r for r in semantic if r["scenario_key"]==s["scenario_key"] and r["target_demand"]=="d1" and r["baseline"]=="zero_traffic"]
-  by={r["demand_id"]:r for r in attrs};reps.append(f"## rho={rho:g}\n\n**Prediction evidence:** Predicted forward loss mean is {float(s['predicted_forward_loss_mean']):.6g}.\n\n**Model evidence:** Demand-level |IG| is d1={float(by['d1']['absolute_ig']):.6g}, d2={float(by['d2']['absolute_ig']):.6g}, d3={float(by['d3']['absolute_ig']):.6g}.\n\n**Forwarding evidence:** d1 and d2 converge on Switch A -> Switch B; d3 uses Switch B -> Switch A.\n\n**Physical evidence:** Forward egress counter-derived throughput is {float(s['forward_egress_bps_mean'])/1e9:.4g} Gbit/s ({float(s['forward_capacity_fraction_mean']):.4g} of nominal capacity); reverse is {float(s['reverse_egress_bps_mean'])/1e9:.4g} Gbit/s ({float(s['reverse_capacity_fraction_mean']):.4g}). Queue evidence uses RED-drop counter deltas, not occupancy.\n\n**Interpretation:** The evidence layers are consistent at the identified directed resource; this is not a causal claim.")
- (a.output_dir/"operator_explanations_complete.md").write_text("\n\n".join(reps)+"\n")
  frozen_after={str(p):sha(p) for p in frozen};
  if frozen_before!=frozen_after:raise AssertionError("Frozen artifact changed")
  provenance_summary={"frozen_sha256_before":frozen_before,"frozen_sha256_after":frozen_after,"frozen_unchanged":True,"public_telemetry_manifest_verified":True,"telemetry_files_sha256":transfer_hashes,"model_loaded":False,"predictions_recomputed":False,"ig_recomputed":False,"telemetry_post_hoc_only":True}
  (a.output_dir/"provenance_summary.json").write_text(json.dumps(provenance_summary,indent=2,sort_keys=True)+"\n")
- plot_outputs(a.output_dir,scenario_physical,complete);print(json.dumps(summary,sort_keys=True))
+ plot_outputs(a.output_dir,scenario_physical);print(json.dumps(summary,sort_keys=True))
 if __name__=="__main__":main()

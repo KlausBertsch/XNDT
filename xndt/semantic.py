@@ -286,22 +286,6 @@ def main():
 
     telemetry = telemetry_rows(test_groups)
     representatives = representative_scenarios(test_groups)
-    operator = []
-    for scenario in representatives:
-        sample = test_groups[scenario][0]
-        rho = float(sample["metadata"]["rho_wire"])
-        attrs = ig_groups[(scenario, "d1", "zero_traffic")]
-        by_demand = {r["attributed_demand"]: r for r in attrs}
-        pred = float(by_demand["d1"]["prediction_actual"])
-        operator.append({
-            "scenario_key": scenario,
-            "rho_wire": rho,
-            "prediction": f"Predicted d1 loss is {pred:.6g}.",
-            "model_evidence": f"Absolute demand attribution is d1={float(by_demand['d1']['absolute_ig']):.6g}, d2={float(by_demand['d2']['absolute_ig']):.6g}, d3={float(by_demand['d3']['absolute_ig']):.6g}.",
-            "forwarding_evidence": "Stored paths show d1 and d2 converging on sw03->sw04; d3 uses the separate reverse resource sw04->sw03.",
-            "physical_evidence": "Per-demand measured loss is available across three repetitions; direction-aligned link/queue telemetry is unavailable in this workspace.",
-            "interpretation": "The model attribution and installed forwarding structure are consistent with forward-demand relevance; no causal hardware conclusion is drawn without aligned telemetry.",
-        })
 
     scenario_rows = []
     for scenario, runs in test_groups.items():
@@ -325,10 +309,6 @@ def main():
     write_csv(args.output_dir / "xndt_telemetry_evidence.csv", telemetry)
     write_csv(args.output_dir / "xndt_scenario_summary.csv", scenario_rows)
     (args.output_dir / "xndt_explanations.json").write_text(json.dumps({"logical_names": LOGICAL_SWITCHES, "explanations": documents}, indent=2, sort_keys=True) + "\n")
-    (args.output_dir / "operator_explanations.json").write_text(json.dumps(operator, indent=2, sort_keys=True) + "\n")
-    (args.output_dir / "operator_explanations.md").write_text("\n\n".join(
-        f"## rho={x['rho_wire']:g}\n\n**Prediction:** {x['prediction']}\n\n**Model evidence:** {x['model_evidence']}\n\n**Forwarding evidence:** {x['forwarding_evidence']}\n\n**Physical evidence:** {x['physical_evidence']}\n\n**Interpretation:** {x['interpretation']}" for x in operator
-    ) + "\n")
     visual_scenario = representatives[-1]
     visual_attrs = ig_groups[(visual_scenario, "d1", "zero_traffic")]
     draw_visualization(args.output_dir / "xndt_semantic_congested", visual_scenario, 1.4, visual_attrs, float(visual_attrs[0]["prediction_actual"]))
