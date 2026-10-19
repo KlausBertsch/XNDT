@@ -117,6 +117,13 @@ python -m xndt.ig_convergence \
 separately in `xndt/model.py`; the remaining files in `xndt/` implement the
 offline experiment pipeline.
 
+The Integrated Gradients analysis follows the method introduced by
+Sundararajan, Taly, and Yan, [“Axiomatic Attribution for Deep
+Networks”](https://proceedings.mlr.press/v70/sundararajan17a.html), ICML 2017.
+The implementation in `xndt/integrated_gradients.py`, together with the
+XNDT-specific convergence and test protocols, was written for this artifact;
+no source files from the authors' reference implementation are included.
+
 The code is licensed under Apache-2.0. The processed data in `data/` is
 licensed separately under CC BY 4.0. See `LICENSE`, `NOTICE`, and
 `data/LICENSE-DATA.md`.

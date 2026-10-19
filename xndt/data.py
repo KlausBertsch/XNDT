@@ -64,23 +64,20 @@ def adapt_sample(sample, as_tensor=True):
         paths.append(path)
     users = [[] for _ in link_ids]
     for p, path in enumerate(paths):
-        for pos, link in enumerate(path): users[link].append([p, pos])
+        for pos, link in enumerate(path):
+            users[link].append([p, pos])
 
     def column(values):
         return np.asarray(values, np.float32).reshape(-1, 1)
 
     zeros = column([0.0] * len(DEMAND_ORDER))
     inputs = {
-        "traffic": column(
-            [d["traffic"]["configured_wire_rate_bps"] for d in demands]
-        ),
+        "traffic": column([d["traffic"]["configured_wire_rate_bps"] for d in demands]),
         "packets": column(
             [d["traffic"]["configured_packet_rate_pps"] for d in demands]
         ),
         "length": np.asarray([len(x) for x in paths], np.int32),
-        "model": np.asarray(
-            [DETERMINISTIC_TIME_DIST_ID] * len(DEMAND_ORDER), np.int32
-        ),
+        "model": np.asarray([DETERMINISTIC_TIME_DIST_ID] * len(DEMAND_ORDER), np.int32),
         "eq_lambda": zeros.copy(),
         "avg_pkts_lambda": zeros.copy(),
         "exp_max_factor": zeros.copy(),
@@ -142,7 +139,9 @@ def compute_train_normalization(dataset_dir, output_path=None):
             "count": int(arr.size),
         }
     dest = Path(output_path or Path(dataset_dir) / "xndt_normalization.json")
-    dest.write_text(json.dumps(stats, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    dest.write_text(
+        json.dumps(stats, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     return stats
 
 
@@ -150,8 +149,6 @@ def calculated_link_loads(inputs, meta):
     traffic = np.asarray(inputs["traffic"]).reshape(-1)
     capacity = np.asarray(inputs["capacity"]).reshape(-1)
     return {
-        lid: float(
-            sum(traffic[p] for p, _ in inputs["path_to_link"][i]) / capacity[i]
-        )
+        lid: float(sum(traffic[p] for p, _ in inputs["path_to_link"][i]) / capacity[i])
         for i, lid in enumerate(meta["link_ids"])
     }
