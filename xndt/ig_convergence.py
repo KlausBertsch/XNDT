@@ -1,7 +1,6 @@
 """Fixed validation-only convergence sweep for the composite XNDT IG function."""
 
 import argparse
-import csv
 import json
 from pathlib import Path
 
@@ -32,13 +31,6 @@ def arguments():
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
-
-
-def write_csv(path, data):
-    with path.open("w", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(data[0]))
-        writer.writeheader()
-        writer.writerows(data)
 
 
 def with_composite_rates(inputs, rates, ratios):
@@ -193,16 +185,6 @@ def main():
             selected_steps = steps
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    write_csv(
-        args.output_dir / "ig_completeness_by_steps.csv",
-        completeness,
-    )
-    write_csv(
-        args.output_dir / "ig_attribution_by_steps.csv",
-        attributions,
-    )
-    write_csv(args.output_dir / "ig_convergence.csv", summaries)
-
     congested = [row for row in attributions if row["rho_wire"] > 1]
     d3_by_steps = {
         str(steps): max(

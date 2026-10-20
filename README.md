@@ -84,8 +84,11 @@ The main reference values are:
 | Test scenarios with d1/d2 on the shared resource | 14/14 | `outputs/semantic/xndt_semantic_summary.json` |
 | Test telemetry joins | 42/42 runs | `outputs/evidence/xndt_complete_telemetry_summary.json` |
 
-Figures and detailed CSV files are written into the same output directories.
-Small floating-point differences between platforms are possible.
+The primary human-readable results are the figures and JSON summaries. The CSV
+files in the prediction, XAI, and semantic stages are compact bridge artifacts
+for the following pipeline stage; `xndt_complete_scenario_summary.csv` is the
+final scenario-level evidence table. Small floating-point differences between
+platforms are possible.
 The 512 integration intervals were selected on the validation split, where all
 24 completeness checks passed the `1e-3` tolerance. The test-split completeness
 count was not used to select this setting.

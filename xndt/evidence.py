@@ -288,52 +288,84 @@ def regime_stats(rows, metric, role="source_egress", queue=None):
     return result
 
 
+def drop_totals(rows):
+    """Sum the retained per-queue RED counters for each measured run."""
+    groups = defaultdict(float)
+    metadata = {}
+    for row in rows:
+        if (
+            row["metric"] != "out_queue_red_drop_pkts"
+            or row["observation_role"] != "source_egress"
+            or not row["valid"]
+        ):
+            continue
+        key = (row["run_id"], row["scenario_key"], row["direction"])
+        groups[key] += float(row["value"])
+        metadata[key] = float(row["rho_wire"])
+    return [
+        {
+            "run_id": run_id,
+            "scenario_key": scenario,
+            "direction": direction,
+            "rho_wire": metadata[(run_id, scenario, direction)],
+            "value": value,
+        }
+        for (run_id, scenario, direction), value in sorted(groups.items())
+    ]
+
+
+def grouped_drop_stats(rows, group_key):
+    groups = defaultdict(list)
+    for row in rows:
+        groups[(row[group_key], row["direction"])].append(row["value"])
+    return {key: mean_std(values) for key, values in groups.items()}
+
+
 def plot_outputs(out, scenario_rows):
-    fig, ax = plt.subplots(figsize=(7, 4))
-    for direction, marker in (("forward", "o"), ("reverse", "s")):
-        data = [
-            r
-            for r in scenario_rows
-            if r["metric"] == "out_octets"
-            and r["observation_role"] == "source_egress"
-            and r["direction"] == direction
-        ]
-        ax.errorbar(
-            [float(r["rho_wire"]) for r in data],
-            [float(r["derived_capacity_fraction_mean"]) for r in data],
-            yerr=[float(r["derived_capacity_fraction_std"]) for r in data],
+    rows = sorted(scenario_rows, key=lambda row: float(row["rho_wire"]))
+    rho = np.asarray([float(row["rho_wire"]) for row in rows])
+    figure, axes = plt.subplots(2, 1, figsize=(8.5, 7), sharex=True)
+
+    axes[0].errorbar(
+        rho,
+        [float(row["forward_capacity_fraction_mean"]) for row in rows],
+        yerr=[float(row["forward_capacity_fraction_std"]) for row in rows],
+        marker="o",
+        linewidth=1.5,
+        capsize=3,
+        color="#1f77b4",
+    )
+    axes[0].set_ylabel("Forward counter throughput\n/ nominal capacity")
+    axes[0].set_title("Independent telemetry at the shared directed bottleneck")
+
+    for direction, color, marker in (
+        ("forward", "#d62728", "o"),
+        ("reverse", "#2ca02c", "s"),
+    ):
+        axes[1].errorbar(
+            rho,
+            [float(row[f"{direction}_red_drop_pkts_mean"]) for row in rows],
+            yerr=[float(row[f"{direction}_red_drop_pkts_std"]) for row in rows],
             marker=marker,
+            linewidth=1.5,
+            capsize=3,
+            color=color,
             label=direction,
         )
-    ax.set(
-        xlabel="configured rho_wire (diagnostic metadata)",
-        ylabel="counter-derived throughput / nominal capacity",
+    axes[1].set(
+        xlabel=r"Offered bottleneck load $\rho$",
+        ylabel="Mean RED-drop packet\ncounter delta",
     )
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(out / "telemetry_forward_vs_reverse_by_rho.png", dpi=180)
-    plt.close(fig)
-    fig, ax = plt.subplots(figsize=(8, 4))
-    for direction in ("forward", "reverse"):
-        for q in ("0", "8"):
-            data = [
-                r
-                for r in scenario_rows
-                if r["metric"] == "out_queue_red_drop_pkts"
-                and r["direction"] == direction
-                and r["queue_id"] == q
-            ]
-            ax.plot(
-                [float(r["rho_wire"]) for r in data],
-                [float(r["mean"]) for r in data],
-                marker="o",
-                label=f"{direction} queue {q}",
-            )
-    ax.set(xlabel="rho_wire", ylabel="RED-drop packet counter delta")
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(out / "telemetry_red_drops_by_rho.png", dpi=180)
-    plt.close(fig)
+    axes[1].legend()
+
+    for axis in axes:
+        axis.axvline(1.0, color="#64748b", linestyle="--", linewidth=1)
+        axis.axvspan(1.0, rho.max() + 0.02, color="#f59e0b", alpha=0.06)
+        axis.grid(axis="y", color="#cbd5e1", linewidth=0.6, alpha=0.45)
+        axis.set_axisbelow(True)
+    figure.tight_layout()
+    figure.savefig(out / "telemetry_evidence.png", dpi=180)
+    plt.close(figure)
 
 
 def main():
@@ -358,6 +390,7 @@ def main():
         raise ValueError("Not all test runs have physical evidence")
     semantic = read_csv(a.semantic_dir / "xndt_explanations.csv")
     projected = read_csv(a.semantic_dir / "xndt_projected_link_relevance.csv")
+    predictions = read_csv(a.prediction_dir / "test_scenario_predictions.csv")
     scenario_lookup = {
         (
             r["scenario_key"],
@@ -368,61 +401,27 @@ def main():
         ): r
         for r in scenario_physical
     }
-    projected_lookup = {
-        (r["scenario_key"], r["target_demand"], r["baseline"], r["link_id"]): r
-        for r in projected
-    }
-    complete = []
-    for e in semantic:
-        for link_id in e["ordered_directed_links"].split(";"):
-            direction = (
-                "forward"
-                if link_id == FORWARD[0]
-                else "reverse" if link_id == REVERSE[0] else "other"
-            )
-            proj = projected_lookup[
-                (e["scenario_key"], e["target_demand"], e["baseline"], link_id)
-            ]
-            out = scenario_lookup.get(
-                (e["scenario_key"], link_id, "out_octets", "", "source_egress")
-            )
-            inp = scenario_lookup.get(
-                (e["scenario_key"], link_id, "in_octets", "", "destination_ingress")
-            )
-            complete.append(
-                e
-                | {
-                    "link_id": link_id,
-                    "direction": direction,
-                    "projected_link_relevance": proj["projected_link_relevance"],
-                    "projected_relevance_type": proj["relevance_type"],
-                    "physical_out_rate_bps_mean": (
-                        out["derived_rate_bps_mean"] if out else ""
-                    ),
-                    "physical_out_rate_bps_std": (
-                        out["derived_rate_bps_std"] if out else ""
-                    ),
-                    "physical_out_capacity_fraction_mean": (
-                        out["derived_capacity_fraction_mean"] if out else ""
-                    ),
-                    "physical_in_rate_bps_mean": (
-                        inp["derived_rate_bps_mean"] if inp else ""
-                    ),
-                    "physical_evidence": (
-                        "independent post-hoc Prometheus/Junos counter deltas"
-                        if out or inp
-                        else "not joined for non-primary resource"
-                    ),
-                }
-            )
-    a.output_dir.mkdir(parents=True, exist_ok=True)
-    write_csv(a.output_dir / "physical_evidence_run_level.csv", physical)
-    write_csv(a.output_dir / "physical_evidence_scenario_level.csv", scenario_physical)
-    write_csv(a.output_dir / "xndt_complete_explanations.csv", complete)
-    (a.output_dir / "xndt_complete_explanations.json").write_text(
-        json.dumps(complete, indent=2, sort_keys=True) + "\n"
-    )
-    pred = read_csv(a.prediction_dir / "test_scenario_predictions.csv")
+
+    semantic_groups = defaultdict(list)
+    for row in semantic:
+        semantic_groups[
+            (row["scenario_key"], row["target_demand"], row["baseline"])
+        ].append(row)
+    if len(semantic_groups) != 56 or any(
+        len(rows) != 3 for rows in semantic_groups.values()
+    ):
+        raise ValueError("Expected 56 semantic explanations with three demands each")
+
+    projected_groups = defaultdict(list)
+    for row in projected:
+        projected_groups[
+            (row["scenario_key"], row["target_demand"], row["baseline"])
+        ].append(row)
+    if set(projected_groups) != set(semantic_groups):
+        raise ValueError("Semantic and projected explanation groups differ")
+
+    drops = drop_totals(physical)
+    scenario_drop_stats = grouped_drop_stats(drops, "scenario_key")
     scenario_summary = []
     for scenario in sorted({r["scenario_key"] for r in test_dataset}):
         rho = float(
@@ -432,9 +431,42 @@ def main():
         )
         forward = [
             r
-            for r in pred
+            for r in predictions
             if r["scenario_key"] == scenario and r["demand_id"] in ("d1", "d2")
         ]
+        explanation_rows = [
+            row
+            for key, rows in semantic_groups.items()
+            if key[0] == scenario
+            for row in rows
+        ]
+        explanation_sets = [
+            rows for key, rows in semantic_groups.items() if key[0] == scenario
+        ]
+        forward_set = all(
+            {
+                row["demand_id"]
+                for row in sorted(
+                    rows, key=lambda item: -float(item["absolute_ig"])
+                )[:2]
+            }
+            == {"d1", "d2"}
+            for rows in explanation_sets
+        )
+        shared_resource = all(
+            any(
+                row["link_id"] == FORWARD[0]
+                and row["shared_by_multiple_demands"].lower() == "true"
+                for row in rows
+            )
+            for key, rows in projected_groups.items()
+            if key[0] == scenario
+        )
+        d3_reverse = all(
+            REVERSE[0] in row["ordered_directed_links"].split(";")
+            for row in explanation_rows
+            if row["demand_id"] == "d3"
+        )
         fo = scenario_lookup[(scenario, FORWARD[0], "out_octets", "", "source_egress")]
         fi = scenario_lookup[
             (scenario, FORWARD[0], "in_octets", "", "destination_ingress")
@@ -443,6 +475,17 @@ def main():
         ri = scenario_lookup[
             (scenario, REVERSE[0], "in_octets", "", "destination_ingress")
         ]
+        forward_drops = scenario_drop_stats[(scenario, "forward")]
+        reverse_drops = scenario_drop_stats[(scenario, "reverse")]
+
+        def attribution_mean(demand, field):
+            values = [
+                float(row[field])
+                for row in explanation_rows
+                if row["demand_id"] == demand
+            ]
+            return float(np.mean(values))
+
         scenario_summary.append(
             {
                 "scenario_key": scenario,
@@ -454,21 +497,49 @@ def main():
                 "measured_forward_loss_mean": np.mean(
                     [float(r["measured_loss_mean"]) for r in forward]
                 ),
-                "d1_d2_converge_forward": True,
-                "d3_traverses_reverse": True,
+                "d1_absolute_ig_mean": attribution_mean("d1", "absolute_ig"),
+                "d2_absolute_ig_mean": attribution_mean("d2", "absolute_ig"),
+                "d3_absolute_ig_mean": attribution_mean("d3", "absolute_ig"),
+                "d1_relative_ig_mean_congested": (
+                    attribution_mean("d1", "relative_importance") if rho > 1 else ""
+                ),
+                "d2_relative_ig_mean_congested": (
+                    attribution_mean("d2", "relative_importance") if rho > 1 else ""
+                ),
+                "d3_relative_ig_mean_congested": (
+                    attribution_mean("d3", "relative_importance") if rho > 1 else ""
+                ),
+                "attributed_forward_set_is_d1_d2": forward_set,
+                "shared_directed_resource": FORWARD[0],
+                "d1_d2_converge_forward": shared_resource,
+                "d3_traverses_reverse": d3_reverse,
                 "forward_egress_bps_mean": fo["derived_rate_bps_mean"],
+                "forward_egress_bps_std": fo["derived_rate_bps_std"],
                 "forward_capacity_fraction_mean": fo["derived_capacity_fraction_mean"],
+                "forward_capacity_fraction_std": fo[
+                    "derived_capacity_fraction_std"
+                ],
                 "forward_egress_ingress_ratio": float(fo["mean"]) / float(fi["mean"]),
                 "reverse_egress_bps_mean": ro["derived_rate_bps_mean"],
                 "reverse_capacity_fraction_mean": ro["derived_capacity_fraction_mean"],
                 "reverse_egress_ingress_ratio": float(ro["mean"]) / float(ri["mean"]),
+                "forward_red_drop_pkts_mean": forward_drops[1],
+                "forward_red_drop_pkts_std": forward_drops[2],
+                "reverse_red_drop_pkts_mean": reverse_drops[1],
+                "reverse_red_drop_pkts_std": reverse_drops[2],
             }
         )
+    a.output_dir.mkdir(parents=True, exist_ok=True)
     write_csv(a.output_dir / "xndt_complete_scenario_summary.csv", scenario_summary)
     throughput = regime_stats(physical, "out_octets")
-    drops = {
-        q: regime_stats(physical, "out_queue_red_drop_pkts", queue=q) for q in (0, 8)
-    }
+    regime_drop_stats = grouped_drop_stats(
+        [
+            row
+            | {"regime": "rho<=1" if float(row["rho_wire"]) <= 1 else "rho>1"}
+            for row in drops
+        ],
+        "regime",
+    )
 
     def fmt(stats):
         return {
@@ -497,11 +568,10 @@ def main():
             for d in ("forward", "reverse")
             for reg in ("rho<=1", "rho>1")
         },
-        "red_drop_pkts": {
-            f"{d}_{reg}_queue_{q}": fmt(drops[q][(d, reg, str(q))])
-            for q in (0, 8)
-            for d in ("forward", "reverse")
-            for reg in ("rho<=1", "rho>1")
+        "red_drop_pkts_total": {
+            f"{direction}_{regime}": fmt(regime_drop_stats[(regime, direction)])
+            for direction in ("forward", "reverse")
+            for regime in ("rho<=1", "rho>1")
         },
     }
     claims = []
@@ -519,15 +589,12 @@ def main():
             "reason": "Queue byte/packet metrics are cumulative transmitted counters, not occupancy.",
         }
     )
-    forward_over = sum(
-        summary["red_drop_pkts"][f"forward_rho>1_queue_{q}"]["mean"] or 0
-        for q in (0, 8)
-    )
+    forward_over = summary["red_drop_pkts_total"]["forward_rho>1"]["mean"] or 0
     claims.append(
         {
             "claim": "queue drops at the bottleneck",
             "classification": "SUPPORTED" if forward_over > 0 else "NOT SUPPORTED",
-            "reason": "Forward-egress RED-drop counter deltas are measured separately for queues 0 and 8.",
+            "reason": "The retained forward-egress per-queue RED-drop counter deltas are summed per run.",
         }
     )
     claims.append(
@@ -537,14 +604,11 @@ def main():
             "reason": "Direction-aligned interface and queue counters independently characterize the shared forward resource.",
         }
     )
-    summary["paper_claim_audit"] = claims
-    (a.output_dir / "xndt_complete_telemetry_summary.json").write_text(
-        json.dumps(summary, indent=2, sort_keys=True) + "\n"
-    )
     frozen_after = {str(p): sha(p) for p in frozen}
     if frozen_before != frozen_after:
         raise AssertionError("Frozen artifact changed")
-    provenance_summary = {
+    summary["paper_claim_audit"] = claims
+    summary["provenance"] = {
         "frozen_sha256_before": frozen_before,
         "frozen_sha256_after": frozen_after,
         "frozen_unchanged": True,
@@ -555,10 +619,10 @@ def main():
         "ig_recomputed": False,
         "telemetry_post_hoc_only": True,
     }
-    (a.output_dir / "provenance_summary.json").write_text(
-        json.dumps(provenance_summary, indent=2, sort_keys=True) + "\n"
+    (a.output_dir / "xndt_complete_telemetry_summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n"
     )
-    plot_outputs(a.output_dir, scenario_physical)
+    plot_outputs(a.output_dir, scenario_summary)
     print(json.dumps(summary, sort_keys=True))
 
 

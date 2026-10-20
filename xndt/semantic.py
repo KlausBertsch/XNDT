@@ -13,15 +13,10 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 
 DEMAND_ORDER = ("d1", "d2", "d3")
 LOGICAL_SWITCHES = {"sw03": "Switch A", "sw04": "Switch B"}
-REPRESENTATIVE_RHOS = (0.95, 1.02, 1.20, 1.40)
 
 
 def arguments():
@@ -120,44 +115,6 @@ def validate_paths(groups):
     return paths
 
 
-def telemetry_rows(groups):
-    """Describe aligned physical resources; raw telemetry is absent here."""
-    rows = []
-    for scenario, runs in groups.items():
-        representative = runs[0]
-        seen = set()
-        for demand in ordered_demands(representative):
-            for link in ordered_path(demand):
-                if link["link_id"] in seen:
-                    continue
-                seen.add(link["link_id"])
-                rows.append(
-                    {
-                        "scenario_key": scenario,
-                        "rho_wire": representative["metadata"]["rho_wire"],
-                        "link_id": link["link_id"],
-                        "source_switch": link["source"],
-                        "source_egress_interface": link["source_interface"],
-                        "destination_switch": link["destination"],
-                        "destination_ingress_interface": link["destination_interface"],
-                        "direction": link["link_id"],
-                        "metric": "Prometheus/QFX link/queue telemetry",
-                        "status": "unavailable",
-                        "source": "telemetry artifacts referenced by schema.json; not present in neutral export/workspace",
-                        "measurement_window": "unavailable",
-                        "unit": "unavailable",
-                        "aggregation_rule": "mean/std over three repetitions if raw aligned measurements become available",
-                        "repetitions_expected": 3,
-                        "repetitions_available": 0,
-                        "mean": "",
-                        "std": "",
-                        "minimum": "",
-                        "maximum": "",
-                    }
-                )
-    return rows
-
-
 def project_links(sample, attribution_rows):
     paths = {d["demand_id"]: ordered_path(d) for d in ordered_demands(sample)}
     demand_abs = {
@@ -197,72 +154,6 @@ def project_links(sample, attribution_rows):
     return result
 
 
-def representative_scenarios(groups):
-    by_rho = {float(v[0]["metadata"]["rho_wire"]): key for key, v in groups.items()}
-    missing = [rho for rho in REPRESENTATIVE_RHOS if rho not in by_rho]
-    if missing:
-        raise ValueError(f"Missing deterministic representative rho levels: {missing}")
-    return [by_rho[rho] for rho in REPRESENTATIVE_RHOS]
-
-
-def draw_visualization(path_stem, scenario, rho, attrs, prediction):
-    values = {r["attributed_demand"]: float(r["absolute_ig"]) for r in attrs}
-    fig, ax = plt.subplots(figsize=(10, 4.8))
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 7)
-    ax.axis("off")
-    colors = {"d1": "#0072B2", "d2": "#D55E00", "d3": "#777777"}
-    for demand, y in (("d1", 5.8), ("d2", 4.2)):
-        width = 1.5 + 18 * values[demand]
-        ax.annotate(
-            "",
-            xy=(4.2, 5),
-            xytext=(0.9, y),
-            arrowprops=dict(arrowstyle="->", lw=width, color=colors[demand]),
-        )
-        ax.text(
-            0.1,
-            y,
-            f"{demand}  |IG|={values[demand]:.4g}",
-            va="center",
-            color=colors[demand],
-        )
-    ax.annotate(
-        "",
-        xy=(8.8, 5),
-        xytext=(4.2, 5),
-        arrowprops=dict(arrowstyle="->", lw=5, color="#009E73"),
-    )
-    ax.text(4.45, 5.35, "Switch A → Switch B\nshared directed link", color="#006B4F")
-    ax.annotate(
-        "",
-        xy=(1.0, 1.7),
-        xytext=(8.8, 1.7),
-        arrowprops=dict(arrowstyle="->", lw=1.5, color=colors["d3"]),
-    )
-    ax.text(
-        3.25,
-        1.25,
-        f"d3 |IG|={values['d3']:.4g}   Switch B → Switch A",
-        color=colors["d3"],
-    )
-    ax.text(
-        0.1,
-        6.65,
-        f"XNDT semantic explanation, rho={rho:g}, target d1, zero_traffic baseline",
-    )
-    ax.text(
-        0.1,
-        0.25,
-        f"Prediction={prediction:.5g} | link relevance is semantic projection | hardware telemetry: unavailable",
-        fontsize=9,
-    )
-    fig.tight_layout()
-    fig.savefig(path_stem.with_suffix(".png"), dpi=180)
-    fig.savefig(path_stem.with_suffix(".svg"))
-    plt.close(fig)
-
-
 def main():
     args = arguments()
     sources = {
@@ -290,7 +181,7 @@ def main():
             "Expected 56 frozen explanations with three demand attributions each"
         )
 
-    explanation_rows, projected_rows, documents = [], [], []
+    explanation_rows, projected_rows = [], []
     for key, attrs in sorted(ig_groups.items()):
         scenario, target, baseline = key
         sample = test_groups[scenario][0]
@@ -298,7 +189,6 @@ def main():
         if set(attr_by_demand) != set(DEMAND_ORDER):
             raise ValueError("Attribution demand order is incomplete")
         projected = project_links(sample, attrs)
-        shared = [r["link_id"] for r in projected if r["shared_by_multiple_demands"]]
         for row in projected:
             projected_rows.append(
                 {
@@ -309,7 +199,6 @@ def main():
                     **row,
                 }
             )
-        demands_doc = []
         for demand in ordered_demands(sample):
             demand_id = demand["demand_id"]
             attr = attr_by_demand[demand_id]
@@ -333,37 +222,8 @@ def main():
                 "ordered_directed_links": ";".join(link["link_id"] for link in links),
                 "model_evidence": "frozen demand-level Integrated Gradients",
                 "forwarding_evidence": "installed ordered directed path from neutral XNDT export",
-                "physical_evidence": "per-demand measured loss aggregated over three runs; aligned link telemetry unavailable",
             }
             explanation_rows.append(record)
-            demands_doc.append(
-                {
-                    **record,
-                    "path": [
-                        {**link, "logical_link": logical_link(link)} for link in links
-                    ],
-                }
-            )
-        documents.append(
-            {
-                "scenario_key": scenario,
-                "rho_wire": sample["metadata"]["rho_wire"],
-                "target_demand": target,
-                "baseline": baseline,
-                "model_evidence": {"type": "demand-level IG", "demands": demands_doc},
-                "forwarding_evidence": {
-                    "shared_directed_links": shared,
-                    "projected_links": projected,
-                },
-                "physical_evidence": {
-                    "status": "link telemetry unavailable",
-                    "measured_loss_repetitions": 3,
-                },
-            }
-        )
-
-    telemetry = telemetry_rows(test_groups)
-    representatives = representative_scenarios(test_groups)
 
     scenario_rows = []
     for scenario, runs in test_groups.items():
@@ -404,32 +264,12 @@ def main():
                 "d1_d2_shared_directed_link": "sw03->sw04",
                 "shared_link_verified_from_paths": "sw03->sw04" in path_map["d1"]
                 and "sw03->sw04" in path_map["d2"],
-                "shared_link_telemetry_status": "unavailable",
             }
         )
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     write_csv(args.output_dir / "xndt_explanations.csv", explanation_rows)
     write_csv(args.output_dir / "xndt_projected_link_relevance.csv", projected_rows)
-    write_csv(args.output_dir / "xndt_telemetry_evidence.csv", telemetry)
-    write_csv(args.output_dir / "xndt_scenario_summary.csv", scenario_rows)
-    (args.output_dir / "xndt_explanations.json").write_text(
-        json.dumps(
-            {"logical_names": LOGICAL_SWITCHES, "explanations": documents},
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n"
-    )
-    visual_scenario = representatives[-1]
-    visual_attrs = ig_groups[(visual_scenario, "d1", "zero_traffic")]
-    draw_visualization(
-        args.output_dir / "xndt_semantic_congested",
-        visual_scenario,
-        1.4,
-        visual_attrs,
-        float(visual_attrs[0]["prediction_actual"]),
-    )
 
     hashes_after = {name: sha256(path) for name, path in sources.items()}
     if hashes_before != hashes_after:
@@ -450,13 +290,7 @@ def main():
         ),
         "shared_directed_resource": "sw03->sw04",
         "reverse_control_resource": "sw04->sw03",
-        "telemetry": {
-            "status": "unavailable",
-            "aligned_scenarios": 0,
-            "reason": "referenced raw telemetry artifacts are absent from neutral export/workspace",
-            "rho_le_1_behavior": "unavailable",
-            "rho_gt_1_behavior": "unavailable",
-        },
+        "scope": "semantic alignment only; physical telemetry is joined by xndt.evidence",
         "rho_le_1": {
             "scenarios": len(below),
             "mean_predicted_forward_loss": float(
@@ -475,7 +309,6 @@ def main():
                 np.mean([r["measured_forward_loss_mean"] for r in above])
             ),
         },
-        "representative_rhos": list(REPRESENTATIVE_RHOS),
         "integrity_hashes_before": hashes_before,
         "integrity_hashes_after": hashes_after,
         "integrity": {

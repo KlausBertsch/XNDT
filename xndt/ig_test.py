@@ -115,56 +115,90 @@ def top_forward_set(values):
     return top_two == {"d1", "d2"}
 
 
-def plots(output_dir, rows, baseline_pairs):
-    measures = (
-        ("absolute_ig", "Absolute IG", "absolute"),
-        ("relative_importance", "Relative |IG|", "relative"),
-    )
-    for target in ("d1", "d2"):
-        for measure, label, prefix in measures:
-            figure, axes = plt.subplots(1, 2, figsize=(10, 3.5), sharey=True)
-            for axis, baseline in zip(axes, ("zero_traffic", "low_load")):
-                selected = [
-                    row
-                    for row in rows
-                    if row["target_demand"] == target and row["baseline"] == baseline
-                ]
-                for demand in DEMAND_ORDER:
-                    values = sorted(
-                        [row for row in selected if row["attributed_demand"] == demand],
-                        key=lambda row: row["rho_wire"],
-                    )
-                    axis.plot(
-                        [row["rho_wire"] for row in values],
-                        [row[measure] for row in values],
-                        marker="o",
-                        label=demand,
-                    )
-                axis.set(
-                    title=baseline,
-                    xlabel="rho_wire",
-                    ylabel=label,
-                )
-                axis.legend()
-            figure.tight_layout()
-            figure.savefig(
-                output_dir / f"test_ig_{prefix}_vs_rho_{target}_target.png",
-                dpi=150,
-            )
-            plt.close(figure)
+def plots(output_dir, rows):
+    colors = {"d1": "#1f77b4", "d2": "#ff7f0e", "d3": "#2ca02c"}
+    baselines = ("zero_traffic", "low_load")
+    targets = ("d1", "d2")
 
-    figure, axis = plt.subplots()
-    axis.scatter(
-        [row["relative_d1_difference"] for row in baseline_pairs],
-        [row["relative_d2_difference"] for row in baseline_pairs],
-        c=[row["rho_wire"] for row in baseline_pairs],
+    figure, axes = plt.subplots(2, 2, figsize=(10, 6.5), sharex=True, sharey=True)
+    for row_index, target in enumerate(targets):
+        for column_index, baseline in enumerate(baselines):
+            axis = axes[row_index, column_index]
+            selected = [
+                row
+                for row in rows
+                if row["target_demand"] == target and row["baseline"] == baseline
+            ]
+            for demand in DEMAND_ORDER:
+                values = sorted(
+                    [row for row in selected if row["attributed_demand"] == demand],
+                    key=lambda row: row["rho_wire"],
+                )
+                axis.plot(
+                    [row["rho_wire"] for row in values],
+                    [row["absolute_ig"] for row in values],
+                    marker="o",
+                    linewidth=1.5,
+                    label=demand,
+                    color=colors[demand],
+                )
+            axis.axvline(1.0, color="#64748b", linestyle="--", linewidth=1)
+            axis.set_title(f"target {target}, {baseline}")
+            axis.set_xlabel(r"Offered bottleneck load $\rho$")
+            axis.set_ylabel("Absolute IG")
+            axis.grid(axis="y", color="#cbd5e1", linewidth=0.6, alpha=0.45)
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    figure.legend(
+        handles,
+        labels,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.0),
+        ncol=3,
+        frameon=True,
     )
+    figure.tight_layout(rect=(0, 0, 1, 0.94))
+    figure.savefig(output_dir / "test_ig_absolute_vs_rho.png", dpi=180)
+    plt.close(figure)
+
+    congested = [row for row in rows if row["rho_wire"] > 1]
+    relative_means = [
+        float(
+            np.mean(
+                [
+                    row["relative_importance"]
+                    for row in congested
+                    if row["attributed_demand"] == demand
+                ]
+            )
+        )
+        for demand in DEMAND_ORDER
+    ]
+    figure, axis = plt.subplots(figsize=(6.5, 4.2))
+    bars = axis.bar(
+        DEMAND_ORDER,
+        relative_means,
+        color=[colors[demand] for demand in DEMAND_ORDER],
+    )
+    axis.bar_label(bars, labels=[f"{value:.1%}" for value in relative_means], padding=3)
     axis.set(
-        xlabel="|Δ relative d1|",
-        ylabel="|Δ relative d2|",
+        ylim=(0, 0.62),
+        xlabel="Attributed demand",
+        ylabel="Mean relative |IG|",
+        title="Relative attribution in congested test scenarios",
     )
+    axis.text(
+        0.5,
+        -0.18,
+        "Mean over five scenarios, two prediction targets and two reference states",
+        transform=axis.transAxes,
+        ha="center",
+        color="#64748b",
+        fontsize=9,
+    )
+    axis.grid(axis="y", color="#cbd5e1", linewidth=0.6, alpha=0.45)
+    axis.set_axisbelow(True)
     figure.tight_layout()
-    figure.savefig(output_dir / "test_ig_baseline_comparison.png", dpi=150)
+    figure.savefig(output_dir / "test_ig_relative_congested.png", dpi=180)
     plt.close(figure)
 
 
@@ -423,23 +457,10 @@ def main():
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     write_csv(args.output_dir / "ig_test.csv", rows)
-    write_csv(args.output_dir / "ig_test_completeness.csv", completeness)
-    write_csv(
-        args.output_dir / "ig_test_baseline_comparison.csv",
-        baseline_pairs,
-    )
-    write_csv(
-        args.output_dir / "ig_test_occlusion_comparison.csv",
-        occlusion_rows,
-    )
-    result_payload = {"summary": summary, "attributions": rows}
-    (args.output_dir / "ig_test.json").write_text(
-        json.dumps(result_payload, indent=2, sort_keys=True) + "\n"
-    )
     (args.output_dir / "ig_test_summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n"
     )
-    plots(args.output_dir, rows, baseline_pairs)
+    plots(args.output_dir, rows)
     print(json.dumps(summary, sort_keys=True), flush=True)
 
 

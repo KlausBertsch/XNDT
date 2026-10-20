@@ -240,24 +240,6 @@ def rho_rows(rows):
     return result
 
 
-def baseline_rows(metrics):
-    result = []
-    for name, value in metrics.items():
-        result.append(
-            {
-                "model": name,
-                "overall_MAE": value["overall"]["MAE"],
-                "overall_RMSE": value["overall"]["RMSE"],
-                "positive_MAE": value["subsets"]["positive"]["MAE"],
-                "positive_RMSE": value["subsets"]["positive"]["RMSE"],
-                "d1_MAE": value["per_demand"]["d1"]["MAE"],
-                "d2_MAE": value["per_demand"]["d2"]["MAE"],
-                "d3_MAE": value["per_demand"]["d3"]["MAE"],
-            }
-        )
-    return result
-
-
 def plots(out, data):
     m = np.array([x["measured_loss_ratio"] for x in data])
     p = np.array([x["predicted_loss_ratio"] for x in data])
@@ -357,21 +339,6 @@ def plots(out, data):
     fig.subplots_adjust(left=0.105, right=0.975, top=0.88, bottom=0.19)
     fig.savefig(out / "test_loss_vs_rho.png", dpi=180, facecolor="white")
     plt.close(fig)
-    fig, ax = plt.subplots()
-    for d in DEMAND_ORDER:
-        s = [x for x in data if x["demand_id"] == d]
-        ax.scatter(
-            [x["rho_wire"] for x in s],
-            [x["absolute_error"] for x in s],
-            s=16,
-            alpha=0.6,
-            label=d,
-        )
-    ax.set(xlabel="rho_wire", ylabel="Absolute error")
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(out / "test_error_vs_rho.png", dpi=150)
-    plt.close(fig)
 
 
 def main():
@@ -405,7 +372,6 @@ def main():
     scenarios = scenario_rows(predictions)
     write_csv(args.output_dir / "test_scenario_predictions.csv", scenarios)
     rho = rho_rows(scenarios)
-    write_csv(args.output_dir / "test_metrics_by_rho.csv", rho)
     all_metrics = {
         "RouteNet-Fermi": metrics_for(predictions, "predicted_loss_ratio"),
         "Capacity-overload heuristic": metrics_for(
@@ -413,9 +379,6 @@ def main():
         ),
         "Always-zero": metrics_for(predictions, "always_zero_prediction"),
     }
-    write_csv(
-        args.output_dir / "test_baseline_comparison.csv", baseline_rows(all_metrics)
-    )
     plots(args.output_dir, predictions)
     d3 = [x for x in predictions if x["demand_id"] == "d3"]
     validation = json.loads((args.training_dir / "training_summary.json").read_text())
