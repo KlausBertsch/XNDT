@@ -1,6 +1,4 @@
-
-# Local source material must never enter the public repository.
-/archive/
+/.archive/
 
 # Python and editor artifacts
 __pycache__/

@@ -117,6 +117,13 @@ python -m xndt.ig_convergence \
 separately in `xndt/model.py`; the remaining files in `xndt/` implement the
 offline experiment pipeline.
 
+The recorded testbed data do not contain physical queue capacities or
+buffer-occupancy measurements. Since the queue configuration remained fixed
+throughout all experiments, the RouteNet-Fermi queue-size input is replaced by
+a shared trainable initialization value in the XNDT model. This parameter is
+not interpreted as a physical queue capacity, and the reported results do not
+establish generalization across different queue or buffer configurations.
+
 The Integrated Gradients analysis follows the method introduced by
 Sundararajan, Taly, and Yan, [“Axiomatic Attribution for Deep
 Networks”](https://proceedings.mlr.press/v70/sundararajan17a.html), ICML 2017.

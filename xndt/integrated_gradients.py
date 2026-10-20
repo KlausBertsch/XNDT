@@ -2,7 +2,7 @@
 
 # Method: Sundararajan, Taly, and Yan, "Axiomatic Attribution for Deep
 # Networks", ICML 2017, https://proceedings.mlr.press/v70/sundararajan17a.html.
-# This is an XNDT-specific implementation; no reference-repository source files
+# This is an XNDT-specific implementation. No reference-repository source files
 # are included.
 
 import argparse
