@@ -10,6 +10,7 @@ import tensorflow as tf
 
 class RouteNet_Fermi(tf.keras.Model):
     def __init__(self, xndt_mode=False, normalization=None):
+        """Build RouteNet-Fermi with the optional XNDT input adaptations."""
         super(RouteNet_Fermi, self).__init__()
         self.xndt_mode = xndt_mode
 
@@ -40,6 +41,7 @@ class RouteNet_Fermi(tf.keras.Model):
             "capacity": [27611.091796875, 20090.62109375],
             "queue_size": [30259.10546875, 21410.095703125],
         }
+        # XNDT replaces the upstream constants with training-split statistics.
         if normalization is not None:
             for name, values in normalization.items():
                 if name in self.z_score:
@@ -49,6 +51,7 @@ class RouteNet_Fermi(tf.keras.Model):
         self.path_update = tf.keras.layers.GRUCell(self.path_state_dim)
         self.link_update = tf.keras.layers.GRUCell(self.link_state_dim)
         self.queue_update = tf.keras.layers.GRUCell(self.queue_state_dim)
+        # Keras 3 requires these stateful wrappers to be created before call().
         self.path_update_rnn = tf.keras.layers.RNN(
             self.path_update, return_sequences=True, return_state=True
         )
@@ -116,7 +119,9 @@ class RouteNet_Fermi(tf.keras.Model):
             name="PathReadout",
         )
 
+    # Leave tracing to Keras so training and GradientTape use the same call path.
     def call(self, inputs):
+        """Predict per-demand loss after eight message-passing iterations."""
         traffic = inputs["traffic"]
         packets = inputs["packets"]
         length = inputs["length"]
@@ -176,7 +181,7 @@ class RouteNet_Fermi(tf.keras.Model):
         # Initialize the initial hidden state for paths
         link_state = self.link_embedding(tf.concat([load, policy], axis=1))
 
-        # Initialize the initial hidden state for paths
+        # XNDT has no measured queue capacity and uses the learned scalar instead.
         if self.xndt_mode:
             queue_feature = tf.broadcast_to(
                 tf.reshape(self.xndt_queue_initial, (1, 1)), (tf.shape(priority)[0], 1)

@@ -25,6 +25,7 @@ STEPS = (64, 128, 256, 512, 1024)
 
 
 def arguments():
+    """Parse paths and the reproducibility seed for the convergence sweep."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", required=True, type=Path)
     parser.add_argument("--training-dir", required=True, type=Path)
@@ -34,6 +35,7 @@ def arguments():
 
 
 def with_composite_rates(inputs, rates, ratios):
+    """Replace bit and packet rates together along the attribution path."""
     result = dict(inputs)
     result["traffic"] = tf.reshape(rates, (-1, 1))
     result["packets"] = tf.reshape(rates * ratios, (-1, 1))
@@ -42,9 +44,11 @@ def with_composite_rates(inputs, rates, ratios):
 
 @tf.function(reduce_retracing=True)
 def gradient_grid(model, inputs, baseline, actual, ratios, target_index):
+    """Evaluate rate gradients on the shared 1024-interval integration grid."""
     alphas = tf.linspace(0.0, 1.0, STEPS[-1] + 1)
 
     def one(alpha):
+        """Evaluate one gradient point on the straight baseline-to-input path."""
         rates = baseline + alpha * (actual - baseline)
         with tf.GradientTape() as tape:
             tape.watch(rates)
@@ -62,6 +66,7 @@ def gradient_grid(model, inputs, baseline, actual, ratios, target_index):
 
 
 def integrate_grid(grid, actual, baseline, steps):
+    """Integrate a nested subgrid with the uniform trapezoidal rule."""
     stride = STEPS[-1] // steps
     gradients = grid[::stride]
     average = (
@@ -71,6 +76,7 @@ def integrate_grid(grid, actual, baseline, steps):
 
 
 def main():
+    """Select the smallest step count that passes every validation check."""
     args = arguments()
     seed_all(args.seed)
 

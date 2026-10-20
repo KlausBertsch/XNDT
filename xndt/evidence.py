@@ -20,6 +20,7 @@ LINK_CAPACITY_BPS = 10e9
 
 
 def args():
+    """Parse all frozen artifact, telemetry, and output paths."""
     parser = argparse.ArgumentParser(description=__doc__)
     for name in (
         "dataset_dir",
@@ -39,11 +40,13 @@ def args():
 
 
 def read_csv(p):
+    """Read a CSV file into a list of dictionaries."""
     with p.open(newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
 
 def write_csv(p, rows):
+    """Write result dictionaries to a CSV file."""
     with p.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
         w.writeheader()
@@ -51,6 +54,7 @@ def write_csv(p, rows):
 
 
 def sha(p):
+    """Return the SHA-256 digest of a file."""
     h = hashlib.sha256()
     with p.open("rb") as f:
         for b in iter(lambda: f.read(1 << 20), b""):
@@ -59,11 +63,13 @@ def sha(p):
 
 
 def time_seconds(start, end):
+    """Return elapsed seconds between two ISO-8601 timestamps."""
     parse = lambda x: datetime.fromisoformat(x.replace("Z", "+00:00"))
     return (parse(end) - parse(start)).total_seconds()
 
 
 def mean_std(values):
+    """Return count, mean, sample deviation, minimum, and maximum."""
     a = np.asarray(values, float)
     return (
         len(a),
@@ -75,6 +81,7 @@ def mean_std(values):
 
 
 def audit(telemetry_dir, dataset_dir):
+    """Verify telemetry hashes, counts, and its one-to-one test-run join."""
     manifest = json.loads((telemetry_dir / "telemetry_manifest.json").read_text())
     schema = json.loads((telemetry_dir / "metric_schema.json").read_text())
     run_path = telemetry_dir / "telemetry_run_level.csv"
@@ -121,6 +128,7 @@ def audit(telemetry_dir, dataset_dir):
 
 
 def normalize_test_physical(run_rows, test_dataset):
+    """Normalize retained test telemetry and derive counter-based rates."""
     meta = {r["run_id"]: r for r in test_dataset}
     selected = []
     for r in run_rows:
@@ -182,6 +190,7 @@ def normalize_test_physical(run_rows, test_dataset):
 
 
 def aggregate_physical(rows):
+    """Aggregate physical measurements across repetitions per scenario."""
     groups = defaultdict(list)
     for r in rows:
         groups[
@@ -258,6 +267,7 @@ def aggregate_physical(rows):
 
 
 def regime_stats(rows, metric, role="source_egress", queue=None):
+    """Summarize one telemetry metric by direction and load regime."""
     result = {}
     for direction in ("forward", "reverse"):
         for label, predicate in (
@@ -315,6 +325,7 @@ def drop_totals(rows):
 
 
 def grouped_drop_stats(rows, group_key):
+    """Group per-run drop totals by a selected key and direction."""
     groups = defaultdict(list)
     for row in rows:
         groups[(row[group_key], row["direction"])].append(row["value"])
@@ -322,6 +333,7 @@ def grouped_drop_stats(rows, group_key):
 
 
 def plot_outputs(out, scenario_rows):
+    """Plot forward throughput and direction-separated RED-drop evidence."""
     rows = sorted(scenario_rows, key=lambda row: float(row["rho_wire"]))
     rho = np.asarray([float(row["rho_wire"]) for row in rows])
     figure, axes = plt.subplots(2, 1, figsize=(8.5, 7), sharex=True)
@@ -369,6 +381,7 @@ def plot_outputs(out, scenario_rows):
 
 
 def main():
+    """Join model, forwarding, and telemetry evidence without recomputation."""
     a = args()
     frozen = [
         a.training_dir / "best.weights.h5",
@@ -479,6 +492,7 @@ def main():
         reverse_drops = scenario_drop_stats[(scenario, "reverse")]
 
         def attribution_mean(demand, field):
+            """Average one attribution field over targets and baselines."""
             values = [
                 float(row[field])
                 for row in explanation_rows
@@ -542,6 +556,7 @@ def main():
     )
 
     def fmt(stats):
+        """Convert a statistics tuple into the public summary schema."""
         return {
             "n": stats[0],
             "mean": stats[1],

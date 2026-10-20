@@ -43,6 +43,7 @@ FORBIDDEN = {
 
 
 def arguments():
+    """Parse dataset, output, and optimization settings."""
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--dataset-dir", required=True, type=Path)
     p.add_argument("--output-dir", required=True, type=Path)
@@ -54,6 +55,7 @@ def arguments():
 
 
 def seed_all(seed):
+    """Seed all random sources and request deterministic TensorFlow operations."""
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
@@ -62,6 +64,7 @@ def seed_all(seed):
 
 
 def paths(root):
+    """Resolve and validate the fixed training and validation files."""
     train, validation = root / "train.jsonl", root / "validation.jsonl"
     for path in (train, validation):
         if not path.is_file():
@@ -70,6 +73,7 @@ def paths(root):
 
 
 def rows(path):
+    """Load a non-empty JSONL split into memory."""
     result = list(read_jsonl(path))
     if not result:
         raise ValueError(f"Empty split: {path}")
@@ -77,6 +81,7 @@ def rows(path):
 
 
 def sha256(path):
+    """Return the SHA-256 digest of a file."""
     digest = hashlib.sha256()
     with path.open("rb") as f:
         for block in iter(lambda: f.read(1024 * 1024), b""):
@@ -85,6 +90,7 @@ def sha256(path):
 
 
 def git_commit():
+    """Return the current Git commit when the repository is available."""
     try:
         return subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL
@@ -94,6 +100,7 @@ def git_commit():
 
 
 def validate_splits(train, val):
+    """Check split sizes, scenario separation, and repetition counts."""
     if (len(train), len(val)) != (294, 42):
         raise ValueError("Expected 294 train and 42 validation runs")
     tk, vk = {x["scenario_key"] for x in train}, {x["scenario_key"] for x in val}
@@ -108,6 +115,7 @@ def validate_splits(train, val):
 
 
 def samples(raw):
+    """Adapt raw runs for training while rejecting label leakage."""
     result = []
     for row in raw:
         x, y, _ = adapt_sample(row, True)
@@ -119,19 +127,24 @@ def samples(raw):
 
 
 def metric(y, p):
+    """Return MAE, MSE, and RMSE for predictions and targets."""
     e = np.asarray(p, np.float64).reshape(-1) - np.asarray(y, np.float64).reshape(-1)
     mse = float(np.mean(e**2))
     return {"MAE": float(np.mean(abs(e))), "MSE": mse, "RMSE": float(np.sqrt(mse))}
 
 
 class Trainer:
+    """Own the optimizer, loss function, and graph-level training operations."""
+
     def __init__(self, model, lr):
+        """Configure Adam and binary cross-entropy for the supplied model."""
         self.model = model
         self.optimizer = tf.keras.optimizers.Adam(lr)
         self.loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=False)
 
     @tf.function(reduce_retracing=True)
     def update(self, x, y):
+        """Apply one gradient update for a single graph sample."""
         y = tf.reshape(tf.cast(y, tf.float32), (-1, 1))
         with tf.GradientTape() as tape:
             loss = self.loss_fn(y, self.model(x, training=True))
@@ -144,9 +157,11 @@ class Trainer:
 
     @tf.function(reduce_retracing=True)
     def predict(self, x):
+        """Run inference without enabling training behavior."""
         return self.model(x, training=False)
 
     def evaluate(self, data):
+        """Evaluate BCE and regression metrics over an adapted split."""
         losses, ys, ps = [], [], []
         for x, y in data:
             p = self.predict(x)
@@ -166,6 +181,10 @@ class Trainer:
 
 
 def train(trainer, train_data, val_data, out, seed, max_epochs, patience):
+    """Train with deterministic shuffling and validation-based early stopping.
+
+    The best validation checkpoint is restored before returning.
+    """
     rng = np.random.default_rng(seed)
     history = []
     best = float("inf")
@@ -203,12 +222,14 @@ def train(trainer, train_data, val_data, out, seed, max_epochs, patience):
 
 
 def dump(path, value):
+    """Write a JSON artifact with stable formatting."""
     path.write_text(
         json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
 
 
 def write_csv(path, data):
+    """Write result dictionaries to a CSV file."""
     with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=list(data[0]))
         w.writeheader()
@@ -216,6 +237,7 @@ def write_csv(path, data):
 
 
 def history_outputs(out, history):
+    """Persist the training history and its BCE and MAE curves."""
     write_csv(out / "training_history.csv", history)
     e = [x["epoch"] for x in history]
     fig, ax = plt.subplots(1, 2, figsize=(9, 3.5))
@@ -233,6 +255,7 @@ def history_outputs(out, history):
 
 
 def capacity_prediction(x):
+    """Estimate path loss with a simple link-capacity overload heuristic."""
     traffic = np.asarray(x["traffic"]).reshape(-1)
     capacity = np.asarray(x["capacity"]).reshape(-1)
     users = x["path_to_link"].to_list()
@@ -250,6 +273,7 @@ def capacity_prediction(x):
 
 
 def diagnostics(raw, data, predictions):
+    """Combine labels, predictions, baselines, and scenario metadata per demand."""
     result = []
     for row, (x, y), p in zip(raw, data, predictions):
         baseline = capacity_prediction(x)
@@ -276,6 +300,7 @@ def diagnostics(raw, data, predictions):
 
 
 def grouped(data, key):
+    """Calculate metrics overall and separately for each demand."""
     categories = {
         "overall": {"all": data},
         "per_demand": {
@@ -297,6 +322,7 @@ def grouped(data, key):
 
 
 def subsets(data, key):
+    """Calculate metrics for zero-loss and positive-loss subsets."""
     result = {}
     for name, selected in (
         ("zero", [x for x in data if x["measured_loss_ratio"] == 0]),
@@ -315,6 +341,7 @@ def subsets(data, key):
 
 
 def scenario_rows(data):
+    """Aggregate repeated validation runs by scenario and demand."""
     groups = defaultdict(list)
     for x in data:
         groups[(x["scenario_key"], x["demand_id"])].append(x)
@@ -340,6 +367,7 @@ def scenario_rows(data):
 
 
 def rho_rows(data):
+    """Aggregate scenario-level validation results by offered load."""
     result = []
     for rho in sorted({x["rho_wire"] for x in data}):
         selected = [x for x in data if x["rho_wire"] == rho]
@@ -360,6 +388,7 @@ def rho_rows(data):
 
 
 def plots(out, data):
+    """Create validation prediction, load, and error figures."""
     measured = np.array([x["measured_loss_ratio"] for x in data])
     predicted = np.array([x["predicted_loss_ratio"] for x in data])
     rho = np.array([x["rho_wire"] for x in data])
@@ -398,10 +427,12 @@ def plots(out, data):
 
 
 def make_model(normalization):
+    """Build the XNDT model with training-split normalization statistics."""
     return RouteNet_Fermi(xndt_mode=True, normalization=normalization["features"])
 
 
 def main():
+    """Run deterministic training and write the validation audit artifacts."""
     args = arguments()
     if min(args.max_epochs, args.patience, args.learning_rate) <= 0:
         raise ValueError("Training parameters must be positive")
