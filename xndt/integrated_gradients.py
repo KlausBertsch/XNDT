@@ -44,8 +44,8 @@ COMPLETENESS_TOLERANCE = 1.0e-3
 FINAL_IG_STEPS = 512
 
 
+# Parse paths and reproducibility settings for the validation run.
 def arguments():
-    """Parse paths and reproducibility settings for the validation run."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", required=True, type=Path)
     parser.add_argument("--training-dir", required=True, type=Path)
@@ -55,8 +55,8 @@ def arguments():
     return parser.parse_args()
 
 
+# Seed all random sources and request deterministic TensorFlow operations.
 def seed_all(seed):
-    """Seed all random sources and request deterministic TensorFlow operations."""
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
@@ -64,16 +64,16 @@ def seed_all(seed):
     tf.config.experimental.enable_op_determinism()
 
 
+# Write a list of result dictionaries as a CSV file.
 def write_csv(path, data):
-    """Write a list of result dictionaries as a CSV file."""
     with path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=list(data[0]))
         writer.writeheader()
         writer.writerows(data)
 
 
+# Hash all model weights to detect changes during attribution.
 def weight_fingerprint(model):
-    """Hash all model weights to detect changes during attribution."""
     digest = hashlib.sha256()
     for value in model.weights:
         digest.update(value.path.encode())
@@ -81,8 +81,8 @@ def weight_fingerprint(model):
     return digest.hexdigest()
 
 
+# Reject leaked labels or telemetry and verify the reverse control path.
 def validate_inputs(inputs):
-    """Reject leaked labels or telemetry and verify the reverse control path."""
     found = FORBIDDEN & set(inputs)
     if found:
         raise ValueError(f"Forbidden gradient-path inputs: {sorted(found)}")
@@ -92,8 +92,8 @@ def validate_inputs(inputs):
         raise ValueError("d3 incorrectly shares forward bottleneck link entity")
 
 
+# Select one deterministic validation sample for each required load level.
 def validation_scenarios(dataset_dir):
-    """Select one deterministic validation sample for each required load level."""
     raw = list(read_jsonl(dataset_dir / "validation.jsonl"))
     by_rho = {}
     for row in sorted(raw, key=lambda item: (item["scenario_key"], item["run_id"])):
@@ -105,8 +105,8 @@ def validation_scenarios(dataset_dir):
     return raw, [by_rho[rho] for rho in RHO_LEVELS]
 
 
+# Find the closest loss-free validation scenario for the low-load baseline.
 def select_low_load(raw, explained):
-    """Find the closest loss-free validation scenario for the low-load baseline."""
     candidates = [
         row
         for row in raw
@@ -131,40 +131,39 @@ def select_low_load(raw, explained):
     )
 
 
+# Return demand bit rates and their packet-per-bit ratios.
 def traffic_and_ratio(inputs):
-    """Return demand bit rates and their packet-per-bit ratios."""
     traffic = tf.reshape(tf.cast(inputs["traffic"], tf.float32), (-1,))
     packets = tf.reshape(tf.cast(inputs["packets"], tf.float32), (-1,))
     return traffic, tf.math.divide_no_nan(packets, traffic)
 
 
+# Replace demand rates while keeping packet and bit rates consistent.
 def with_rates(inputs, rates, ratios):
-    """Replace demand rates while keeping packet and bit rates consistent."""
     result = dict(inputs)
     result["traffic"] = tf.reshape(rates, (-1, 1))
     result["packets"] = tf.reshape(rates * ratios, (-1, 1))
     return result
 
 
+# Evaluate one target demand at the supplied traffic rates.
 def output(model, inputs, rates, ratios, target_index):
-    """Evaluate one target demand at the supplied traffic rates."""
     return model(with_rates(inputs, rates, ratios), training=False)[target_index, 0]
 
 
+# Differentiate one loss prediction with respect to all demand rates.
 @tf.function(reduce_retracing=True)
 def rate_gradient(model, inputs, rates, ratios, target_index):
-    """Differentiate one loss prediction with respect to all demand rates."""
     with tf.GradientTape() as tape:
         tape.watch(rates)
         prediction = output(model, inputs, rates, ratios, target_index)
     return prediction, tape.gradient(prediction, rates)
 
 
+# Integrate rate gradients from a baseline to the observed traffic state.
+#
+# The trapezoidal approximation also returns its completeness error.
 def integrated_gradients(model, inputs, baseline_rates, target_index, steps):
-    """Integrate rate gradients from a baseline to the observed traffic state.
-
-    The trapezoidal approximation also returns its completeness error.
-    """
     if steps <= 0:
         raise ValueError("steps must be positive")
 
@@ -197,8 +196,8 @@ def integrated_gradients(model, inputs, baseline_rates, target_index, steps):
     )
 
 
+# Measure each demand by replacing it individually with its baseline rate.
 def occlusion(model, inputs, baseline_rates, target_index):
-    """Measure each demand by replacing it individually with its baseline rate."""
     actual, ratios = traffic_and_ratio(inputs)
     original = float(output(model, inputs, actual, ratios, target_index))
     deltas = []
@@ -209,13 +208,13 @@ def occlusion(model, inputs, baseline_rates, target_index):
     return deltas
 
 
+# Order demands by the absolute size of their attribution.
 def ranking(values):
-    """Order demands by the absolute size of their attribution."""
     return ">".join(DEMAND_ORDER[index] for index in np.argsort(-np.abs(values)))
 
 
+# Plot relative attributions and their agreement with occlusion.
 def make_plots(output_dir, rows):
-    """Plot relative attributions and their agreement with occlusion."""
     for target in ("d1", "d2"):
         figure, axes = plt.subplots(1, 2, figsize=(10, 3.5), sharey=True)
         for axis, baseline in zip(axes, ("zero_traffic", "low_load")):
@@ -262,8 +261,8 @@ def make_plots(output_dir, rows):
     plt.close(figure)
 
 
+# Run the validation-only IG protocol and write its audit artifacts.
 def main():
-    """Run the validation-only IG protocol and write its audit artifacts."""
     args = arguments()
     seed_all(args.seed)
 

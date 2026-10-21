@@ -19,8 +19,8 @@ DEMAND_ORDER = ("d1", "d2", "d3")
 LOGICAL_SWITCHES = {"sw03": "Switch A", "sw04": "Switch B"}
 
 
+# Parse the input and output paths for semantic alignment.
 def arguments():
-    """Parse the input and output paths for semantic alignment."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", type=Path, required=True)
     parser.add_argument("--xai-dir", type=Path, required=True)
@@ -30,8 +30,8 @@ def arguments():
     return parser.parse_args()
 
 
+# Return the SHA-256 digest of a file.
 def sha256(path):
-    """Return the SHA-256 digest of a file."""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
@@ -39,20 +39,20 @@ def sha256(path):
     return digest.hexdigest()
 
 
+# Read all non-empty records from a JSONL file.
 def read_jsonl(path):
-    """Read all non-empty records from a JSONL file."""
     with path.open(encoding="utf-8") as handle:
         return [json.loads(line) for line in handle if line.strip()]
 
 
+# Read a CSV file into a list of dictionaries.
 def read_csv(path):
-    """Read a CSV file into a list of dictionaries."""
     with path.open(newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
 
 
+# Write result dictionaries with an optional explicit column order.
 def write_csv(path, rows, fields=None):
-    """Write result dictionaries with an optional explicit column order."""
     fields = fields or list(rows[0])
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
@@ -60,8 +60,8 @@ def write_csv(path, rows, fields=None):
         writer.writerows(rows)
 
 
+# Return demands in the fixed d1, d2, d3 order.
 def ordered_demands(sample):
-    """Return demands in the fixed d1, d2, d3 order."""
     if len(sample["demands"]) != len(DEMAND_ORDER):
         raise ValueError("Every XNDT sample must contain exactly d1, d2 and d3")
     by_id = {d["demand_id"]: d for d in sample["demands"]}
@@ -70,23 +70,23 @@ def ordered_demands(sample):
     return [by_id[d] for d in DEMAND_ORDER]
 
 
+# Return and validate one demand's directed forwarding path.
 def ordered_path(demand):
-    """Return and validate one demand's directed forwarding path."""
     path = sorted(demand["path"], key=lambda link: link["order"])
     if [link["order"] for link in path] != list(range(len(path))):
         raise ValueError(f"Non-contiguous path order for {demand['demand_id']}")
     return path
 
 
+# Format a directed link with presentation-level switch names.
 def logical_link(link):
-    """Format a directed link with presentation-level switch names."""
     source = LOGICAL_SWITCHES.get(link["source"], link["source"])
     destination = LOGICAL_SWITCHES.get(link["destination"], link["destination"])
     return f"{source} -> {destination}"
 
 
+# Group test runs by scenario and validate their repetition structure.
 def group_test_runs(rows):
-    """Group test runs by scenario and validate their repetition structure."""
     groups = defaultdict(list)
     for row in rows:
         groups[row["scenario_key"]].append(row)
@@ -101,8 +101,8 @@ def group_test_runs(rows):
     return dict(sorted(groups.items()))
 
 
+# Verify stable paths and the expected forward and reverse resources.
 def validate_paths(groups):
-    """Verify stable paths and the expected forward and reverse resources."""
     reference = None
     for scenario, runs in groups.items():
         signatures = []
@@ -125,11 +125,10 @@ def validate_paths(groups):
     return paths
 
 
+# Project absolute demand attributions onto installed directed links.
+#
+# The result is semantic relevance, not a gradient of a link feature.
 def project_links(sample, attribution_rows):
-    """Project absolute demand attributions onto installed directed links.
-
-    The result is semantic relevance, not a gradient of a link feature.
-    """
     paths = {d["demand_id"]: ordered_path(d) for d in ordered_demands(sample)}
     demand_abs = {
         r["attributed_demand"]: float(r["absolute_ig"]) for r in attribution_rows
@@ -168,8 +167,8 @@ def project_links(sample, attribution_rows):
     return result
 
 
+# Join frozen demand attributions with forwarding paths and summarize them.
 def main():
-    """Join frozen demand attributions with forwarding paths and summarize them."""
     args = arguments()
     sources = {
         "checkpoint": args.training_dir / "best.weights.h5",

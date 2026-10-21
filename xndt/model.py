@@ -9,8 +9,8 @@ import tensorflow as tf
 
 
 class RouteNet_Fermi(tf.keras.Model):
+    # Build RouteNet-Fermi with the optional XNDT input adaptations.
     def __init__(self, xndt_mode=False, normalization=None):
-        """Build RouteNet-Fermi with the optional XNDT input adaptations."""
         super(RouteNet_Fermi, self).__init__()
         self.xndt_mode = xndt_mode
 
@@ -119,9 +119,8 @@ class RouteNet_Fermi(tf.keras.Model):
             name="PathReadout",
         )
 
-    # Leave tracing to Keras so training and GradientTape use the same call path.
+    # Predict demand loss through the same Keras path used for training and attribution.
     def call(self, inputs):
-        """Predict per-demand loss after eight message-passing iterations."""
         traffic = inputs["traffic"]
         packets = inputs["packets"]
         length = inputs["length"]

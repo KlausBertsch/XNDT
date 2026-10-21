@@ -26,16 +26,16 @@ CONTINUOUS_FEATURES = (
 )
 
 
+# Yield non-empty JSON records from a JSONL file.
 def read_jsonl(path):
-    """Yield non-empty JSON records from a JSONL file."""
     with Path(path).open(encoding="utf-8") as stream:
         for line in stream:
             if line.strip():
                 yield json.loads(line)
 
 
+# Validate and return the three demands in the fixed model order.
 def _ordered_demands(sample):
-    """Validate and return the three demands in the fixed model order."""
     if len(sample["demands"]) != len(DEMAND_ORDER):
         raise ValueError(
             f"Expected exactly {len(DEMAND_ORDER)} demands, "
@@ -47,12 +47,11 @@ def _ordered_demands(sample):
     return [by_id[name] for name in DEMAND_ORDER]
 
 
+# Convert one exported XNDT run into RouteNet-Fermi inputs and labels.
+#
+# The adapter rebuilds directed paths and the ragged graph mappings expected
+# by the original model.
 def adapt_sample(sample, as_tensor=True):
-    """Convert one exported XNDT run into RouteNet-Fermi inputs and labels.
-
-    The adapter rebuilds directed paths and the ragged graph mappings expected
-    by the original model.
-    """
     demands = _ordered_demands(sample)
     link_ids, capacities, paths = [], {}, []
     for demand in demands:
@@ -74,8 +73,8 @@ def adapt_sample(sample, as_tensor=True):
         for pos, link in enumerate(path):
             users[link].append([p, pos])
 
+    # Return feature values as a float32 column vector.
     def column(values):
-        """Return feature values as a float32 column vector."""
         return np.asarray(values, np.float32).reshape(-1, 1)
 
     zeros = column([0.0] * len(DEMAND_ORDER))
@@ -125,14 +124,14 @@ def adapt_sample(sample, as_tensor=True):
     return inputs, target, meta
 
 
+# Yield adapted samples from one fixed dataset split.
 def iter_split(dataset_dir, split="train", as_tensor=True):
-    """Yield adapted samples from one fixed dataset split."""
     for sample in read_jsonl(Path(dataset_dir) / f"{split}.jsonl"):
         yield adapt_sample(sample, as_tensor)
 
 
+# Compute feature statistics from the training split and persist them.
 def compute_train_normalization(dataset_dir, output_path=None):
-    """Compute feature statistics from the training split and persist them."""
     values = {x: [] for x in CONTINUOUS_FEATURES}
     for sample in read_jsonl(Path(dataset_dir) / "train.jsonl"):
         inputs, _, _ = adapt_sample(sample, False)
@@ -155,8 +154,8 @@ def compute_train_normalization(dataset_dir, output_path=None):
     return stats
 
 
+# Calculate offered load relative to capacity for every directed link.
 def calculated_link_loads(inputs, meta):
-    """Calculate offered load relative to capacity for every directed link."""
     traffic = np.asarray(inputs["traffic"]).reshape(-1)
     capacity = np.asarray(inputs["capacity"]).reshape(-1)
     return {

@@ -36,8 +36,8 @@ FORBIDDEN = {
 }
 
 
+# Parse the paths and seed used for frozen test evaluation.
 def arguments():
-    """Parse the paths and seed used for frozen test evaluation."""
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--dataset-dir", required=True, type=Path)
     p.add_argument("--training-dir", required=True, type=Path)
@@ -46,8 +46,8 @@ def arguments():
     return p.parse_args()
 
 
+# Return the SHA-256 digest of a file.
 def sha256(path):
-    """Return the SHA-256 digest of a file."""
     h = hashlib.sha256()
     with path.open("rb") as f:
         for block in iter(lambda: f.read(1024 * 1024), b""):
@@ -55,8 +55,8 @@ def sha256(path):
     return h.hexdigest()
 
 
+# Seed all random sources and request deterministic TensorFlow operations.
 def seed_all(seed):
-    """Seed all random sources and request deterministic TensorFlow operations."""
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
@@ -64,16 +64,16 @@ def seed_all(seed):
     tf.config.experimental.enable_op_determinism()
 
 
+# Write result dictionaries to a CSV file.
 def write_csv(path, data):
-    """Write result dictionaries to a CSV file."""
     with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=list(data[0]))
         w.writeheader()
         w.writerows(data)
 
 
+# Verify the declared test split, repetitions, and scenario separation.
 def validate_split_metadata(dataset_dir, test_rows):
-    """Verify the declared test split, repetitions, and scenario separation."""
     split = json.loads((dataset_dir / "dataset_split.json").read_text())["scenarios"]
     keys = defaultdict(set)
     for x in split:
@@ -90,15 +90,15 @@ def validate_split_metadata(dataset_dir, test_rows):
         raise ValueError("Expected repetitions 0,1,2 per test scenario")
 
 
+# Serialize dense or ragged tensors for deterministic hashing.
 def tensor_bytes(value):
-    """Serialize dense or ragged tensors for deterministic hashing."""
     if isinstance(value, tf.RaggedTensor):
         return value.flat_values.numpy().tobytes() + value.row_splits.numpy().tobytes()
     return np.asarray(value).tobytes()
 
 
+# Hash a complete model-input dictionary in stable key order.
 def input_fingerprint(inputs):
-    """Hash a complete model-input dictionary in stable key order."""
     h = hashlib.sha256()
     for name in sorted(inputs):
         h.update(name.encode())
@@ -106,8 +106,8 @@ def input_fingerprint(inputs):
     return h.hexdigest()
 
 
+# Hash all model weights to detect changes during evaluation.
 def weight_fingerprint(model):
-    """Hash all model weights to detect changes during evaluation."""
     h = hashlib.sha256()
     for value in model.weights:
         h.update(value.path.encode())
@@ -115,8 +115,8 @@ def weight_fingerprint(model):
     return h.hexdigest()
 
 
+# Run the frozen model and collect one diagnostic row per demand.
 def evaluate_model(model, raw):
-    """Run the frozen model and collect one diagnostic row per demand."""
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=False)
     result = []
     bces = []
@@ -152,8 +152,8 @@ def evaluate_model(model, raw):
     return result, float(np.mean(bces)), max(len(v) for v in fingerprints.values())
 
 
+# Compute overall, per-demand, and loss-regime metrics for one predictor.
 def metrics_for(data, key):
-    """Compute overall, per-demand, and loss-regime metrics for one predictor."""
     overall = metric([x["measured_loss_ratio"] for x in data], [x[key] for x in data])
     per = {}
     for d in DEMAND_ORDER:
@@ -185,8 +185,8 @@ def metrics_for(data, key):
     }
 
 
+# Aggregate the three repetitions of each scenario and demand.
 def scenario_rows(data):
-    """Aggregate the three repetitions of each scenario and demand."""
     groups = defaultdict(list)
     for x in data:
         groups[(x["scenario_key"], x["demand_id"])].append(x)
@@ -212,10 +212,10 @@ def scenario_rows(data):
     return result
 
 
+# Calculate scenario-level metrics overall and per demand.
 def scenario_metrics(rows):
-    """Calculate scenario-level metrics overall and per demand."""
+    # Calculate MAE and RMSE for a selected set of scenario rows.
     def one(selected):
-        """Calculate MAE and RMSE for a selected set of scenario rows."""
         value = metric(
             [x["measured_loss_mean"] for x in selected],
             [x["predicted_loss_mean"] for x in selected],
@@ -230,8 +230,8 @@ def scenario_metrics(rows):
     }
 
 
+# Aggregate scenario predictions and errors by offered load.
 def rho_rows(rows):
-    """Aggregate scenario predictions and errors by offered load."""
     result = []
     for rho in sorted({x["rho_wire"] for x in rows}):
         selected = [x for x in rows if x["rho_wire"] == rho]
@@ -254,8 +254,8 @@ def rho_rows(rows):
     return result
 
 
+# Create the measured-versus-predicted and load-dependent result figures.
 def plots(out, data):
-    """Create the measured-versus-predicted and load-dependent result figures."""
     m = np.array([x["measured_loss_ratio"] for x in data])
     p = np.array([x["predicted_loss_ratio"] for x in data])
     rho = np.array([x["rho_wire"] for x in data])
@@ -356,8 +356,8 @@ def plots(out, data):
     plt.close(fig)
 
 
+# Evaluate the published checkpoint and write frozen test artifacts.
 def main():
-    """Evaluate the published checkpoint and write frozen test artifacts."""
     args = arguments()
     seed_all(args.seed)
     required = {

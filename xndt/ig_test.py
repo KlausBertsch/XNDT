@@ -35,8 +35,8 @@ from xndt.model import RouteNet_Fermi
 assert FINAL_IG_STEPS == 512
 
 
+# Parse paths and the seed for the frozen test attribution run.
 def arguments():
-    """Parse paths and the seed for the frozen test attribution run."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", required=True, type=Path)
     parser.add_argument("--training-dir", required=True, type=Path)
@@ -45,8 +45,8 @@ def arguments():
     return parser.parse_args()
 
 
+# Return the SHA-256 digest of a file.
 def sha256(path):
-    """Return the SHA-256 digest of a file."""
     digest = hashlib.sha256()
     with path.open("rb") as stream:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
@@ -54,16 +54,16 @@ def sha256(path):
     return digest.hexdigest()
 
 
+# Write result dictionaries to a CSV file.
 def write_csv(path, data):
-    """Write result dictionaries to a CSV file."""
     with path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=list(data[0]))
         writer.writeheader()
         writer.writerows(data)
 
 
+# Select one deterministic representative from each test scenario.
 def select_test_representatives(dataset_dir):
-    """Select one deterministic representative from each test scenario."""
     raw = list(read_jsonl(dataset_dir / "test.jsonl"))
     groups = defaultdict(list)
     for row in raw:
@@ -86,13 +86,13 @@ def select_test_representatives(dataset_dir):
     ]
 
 
+# Evaluate all 513 gradients required by the frozen test protocol.
 @tf.function(reduce_retracing=True)
 def gradient_grid_512(model, inputs, baseline, actual, ratios, target_index):
-    """Evaluate all 513 gradients required by the frozen test protocol."""
     alphas = tf.linspace(0.0, 1.0, FINAL_IG_STEPS + 1)
 
+    # Evaluate one gradient point on the straight attribution path.
     def one(alpha):
-        """Evaluate one gradient point on the straight attribution path."""
         rates = baseline + alpha * (actual - baseline)
         with tf.GradientTape() as tape:
             tape.watch(rates)
@@ -109,22 +109,22 @@ def gradient_grid_512(model, inputs, baseline, actual, ratios, target_index):
     )
 
 
+# Convert the fixed gradient grid into per-demand IG attributions.
 def integrate(grid, actual, baseline):
-    """Convert the fixed gradient grid into per-demand IG attributions."""
     average = (grid[0] + grid[-1] + 2 * tf.reduce_sum(grid[1:-1], axis=0)) / (
         2 * FINAL_IG_STEPS
     )
     return (actual - baseline) * average
 
 
+# Check whether d1 and d2 are the two strongest attributions.
 def top_forward_set(values):
-    """Check whether d1 and d2 are the two strongest attributions."""
     top_two = {DEMAND_ORDER[index] for index in np.argsort(-np.abs(values))[:2]}
     return top_two == {"d1", "d2"}
 
 
+# Plot absolute IG curves and congested relative demand relevance.
 def plots(output_dir, rows):
-    """Plot absolute IG curves and congested relative demand relevance."""
     colors = {"d1": "#1f77b4", "d2": "#ff7f0e", "d3": "#2ca02c"}
     baselines = ("zero_traffic", "low_load")
     targets = ("d1", "d2")
@@ -211,8 +211,8 @@ def plots(output_dir, rows):
     plt.close(figure)
 
 
+# Run frozen test IG, occlusion, and baseline robustness checks.
 def main():
-    """Run frozen test IG, occlusion, and baseline robustness checks."""
     args = arguments()
     seed_all(args.seed)
 
